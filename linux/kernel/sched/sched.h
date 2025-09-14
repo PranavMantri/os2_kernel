@@ -217,12 +217,23 @@ static inline int dl_policy(int policy)
 	return policy == SCHED_DEADLINE;
 }
 
+/*6118*/
+static inline int wfs_policy(int policy)
+{
+        return policy == SCHED_WFS;
+}
 static inline bool valid_policy(int policy)
 {
-	return idle_policy(policy) || fair_policy(policy) ||
-		rt_policy(policy) || dl_policy(policy);
+	bool result = policy >= SCHED_NORMAL && policy <= SCHED_DEADLINE &&
+		policy != 7 || policy == SCHED_WFS;
+
+		printk(KERN_INFO "WFS: valid_policy check for SCHED_WFS=%d, result=%d\n",
+			policy, result);
+
+	return result;
 }
 
+/*6118*/
 static inline int task_has_idle_policy(struct task_struct *p)
 {
 	return idle_policy(p->policy);
