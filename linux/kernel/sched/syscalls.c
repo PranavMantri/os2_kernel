@@ -554,7 +554,10 @@ recheck:
 	if ((dl_policy(policy) && !__checkparam_dl(attr)) ||
 	    (rt_policy(policy) != (attr->sched_priority != 0)))
 		return -EINVAL;
-
+	/* 6118 */
+	if (policy == SCHED_WFS && attr->sched_priority != 0)
+		return -EINVAL;
+	/* 6118 */
 	if (user) {
 		retval = user_check_sched_setscheduler(p, attr, policy, reset_on_fork);
 		if (retval)

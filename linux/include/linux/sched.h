@@ -719,6 +719,25 @@ struct sched_dl_entity {
 #endif
 };
 
+
+/* 6118*/
+struct sched_wfs_entity {
+    struct list_head        run_list;
+    unsigned long           time_slice;
+    u64                     exec_start;
+    u64                     sum_exec_runtime;
+    u64                     prev_sum_exec_runtime;
+};
+/*6118*/
+
+
+
+
+
+
+
+
+
 #ifdef CONFIG_UCLAMP_TASK
 /* Number of utilization clamp buckets (shorter alias) */
 #define UCLAMP_BUCKETS CONFIG_UCLAMP_BUCKETS_COUNT
@@ -845,6 +864,9 @@ struct task_struct {
 	struct sched_rt_entity		rt;
 	struct sched_dl_entity		dl;
 	struct sched_dl_entity		*dl_server;
+	/*6118*/
+	struct sched_wfs_entity		wfs;
+	/*6118*/
 #ifdef CONFIG_SCHED_CLASS_EXT
 	struct sched_ext_entity		scx;
 #endif

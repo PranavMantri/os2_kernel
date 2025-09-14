@@ -133,6 +133,7 @@ defined(CONFIG_AUTOFDO_CLANG) || defined(CONFIG_PROPELLER_CLANG)
  * used to determine the order of the priority of each sched class in
  * relation to each other.
  */
+/* 6118 */
 #define SCHED_DATA				\
 	STRUCT_ALIGN();				\
 	__sched_class_highest = .;		\
@@ -141,8 +142,11 @@ defined(CONFIG_AUTOFDO_CLANG) || defined(CONFIG_PROPELLER_CLANG)
 	*(__rt_sched_class)			\
 	*(__fair_sched_class)			\
 	*(__ext_sched_class)			\
+	*(__wfs_sched_class)			\
 	*(__idle_sched_class)			\
 	__sched_class_lowest = .;
+/* 6118 */
+
 
 /* The actual configuration determine if the init/exit sections
  * are handled as text/data or they can be discarded (which

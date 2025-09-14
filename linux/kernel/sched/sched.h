@@ -898,6 +898,19 @@ struct dl_rq {
 	u64			bw_ratio;
 };
 
+
+/*6118*/
+
+struct wfs_rq {
+    struct list_head queue;
+    unsigned int wfs_nr_running;
+};
+
+
+/*6118*/
+
+
+
 #ifdef CONFIG_FAIR_GROUP_SCHED
 
 /* An entity is a task if it doesn't "own" a runqueue */
@@ -1100,6 +1113,8 @@ DECLARE_STATIC_KEY_FALSE(sched_uclamp_used);
  * (such as the load balancing or the thread migration code), lock
  * acquire operations must be ordered by ascending &runqueue.
  */
+
+
 struct rq {
 	/* runqueue lock: */
 	raw_spinlock_t		__lock;
@@ -1135,6 +1150,9 @@ struct rq {
 	struct cfs_rq		cfs;
 	struct rt_rq		rt;
 	struct dl_rq		dl;
+	/*6118*/
+	struct wfs_rq		wfs;
+	/*6118*/
 #ifdef CONFIG_SCHED_CLASS_EXT
 	struct scx_rq		scx;
 #endif
@@ -2542,6 +2560,12 @@ extern const struct sched_class stop_sched_class;
 extern const struct sched_class dl_sched_class;
 extern const struct sched_class rt_sched_class;
 extern const struct sched_class fair_sched_class;
+
+/*6118*/
+extern const struct sched_class wfs_sched_class;
+extern void init_wfs_rq(struct wfs_rq *wfs_rq);
+/*6118*/
+
 extern const struct sched_class idle_sched_class;
 
 /*

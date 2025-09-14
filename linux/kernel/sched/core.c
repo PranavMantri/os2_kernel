@@ -169,6 +169,10 @@ static inline int __task_prio(const struct task_struct *p)
 	if (rt_or_dl_prio(p->prio))
 		return p->prio; /* [-1, 99] */
 
+	/* 6118 */
+	if (p->sched_class == &wfs_sched_class)
+		 return MAX_WFS_PRIO;
+	/* 6118 */
 	if (p->sched_class == &idle_sched_class)
 		return MAX_RT_PRIO + NICE_WIDTH; /* 140 */
 
@@ -4508,6 +4512,14 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->rt.time_slice	= sched_rr_timeslice;
 	p->rt.on_rq		= 0;
 	p->rt.on_list		= 0;
+	
+	/* 6118 */
+	INIT_LIST_HEAD(&p->wfs.run_list);
+	p->wfs.time_slice = 0;
+	p->wfs.exec_start = 0;
+	p->wfs.sum_exec_runtime = 0;
+	p->wfs.prev_sum_exec_runtime = 0;
+	/* 6118 */
 
 #ifdef CONFIG_SCHED_CLASS_EXT
 	init_scx_entity(&p->scx);
@@ -7108,6 +7120,10 @@ const struct sched_class *__setscheduler_class(int policy, int prio)
 	if (rt_prio(prio))
 		return &rt_sched_class;
 
+	/* 6118 */
+	if (policy == SCHED_WFS)
+		return &wfs_sched_class;
+	/* 6118 */
 #ifdef CONFIG_SCHED_CLASS_EXT
 	if (task_should_scx(policy))
 		return &ext_sched_class;
@@ -8553,6 +8569,11 @@ void __init sched_init(void)
 		init_cfs_rq(&rq->cfs);
 		init_rt_rq(&rq->rt);
 		init_dl_rq(&rq->dl);
+		
+		/* 6118 */
+		init_wfs_rq(&rq->wfs);
+		/* 6118 */
+
 #ifdef CONFIG_FAIR_GROUP_SCHED
 		INIT_LIST_HEAD(&rq->leaf_cfs_rq_list);
 		rq->tmp_alone_branch = &rq->leaf_cfs_rq_list;

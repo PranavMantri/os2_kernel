@@ -1,0 +1,338 @@
+diff --git a/linux/include/asm-generic/vmlinux.lds.h b/linux/include/asm-generic/vmlinux.lds.h
+index 0d5b186ab..1d70f876b 100644
+--- a/linux/include/asm-generic/vmlinux.lds.h
++++ b/linux/include/asm-generic/vmlinux.lds.h
+@@ -133,6 +133,7 @@ defined(CONFIG_AUTOFDO_CLANG) || defined(CONFIG_PROPELLER_CLANG)
+  * used to determine the order of the priority of each sched class in
+  * relation to each other.
+  */
++/* 6118 */
+ #define SCHED_DATA				\
+ 	STRUCT_ALIGN();				\
+ 	__sched_class_highest = .;		\
+@@ -141,8 +142,11 @@ defined(CONFIG_AUTOFDO_CLANG) || defined(CONFIG_PROPELLER_CLANG)
+ 	*(__rt_sched_class)			\
+ 	*(__fair_sched_class)			\
+ 	*(__ext_sched_class)			\
++	*(__wfs_sched_class)			\
+ 	*(__idle_sched_class)			\
+ 	__sched_class_lowest = .;
++/* 6118 */
++
+ 
+ /* The actual configuration determine if the init/exit sections
+  * are handled as text/data or they can be discarded (which
+diff --git a/linux/include/linux/sched.h b/linux/include/linux/sched.h
+index 9c15365a3..c2f5ca235 100644
+--- a/linux/include/linux/sched.h
++++ b/linux/include/linux/sched.h
+@@ -719,6 +719,25 @@ struct sched_dl_entity {
+ #endif
+ };
+ 
++
++/* 6118*/
++struct sched_wfs_entity {
++    struct list_head        run_list;
++    unsigned long           time_slice;
++    u64                     exec_start;
++    u64                     sum_exec_runtime;
++    u64                     prev_sum_exec_runtime;
++};
++/*6118*/
++
++
++
++
++
++
++
++
++
+ #ifdef CONFIG_UCLAMP_TASK
+ /* Number of utilization clamp buckets (shorter alias) */
+ #define UCLAMP_BUCKETS CONFIG_UCLAMP_BUCKETS_COUNT
+@@ -845,6 +864,9 @@ struct task_struct {
+ 	struct sched_rt_entity		rt;
+ 	struct sched_dl_entity		dl;
+ 	struct sched_dl_entity		*dl_server;
++	/*6118*/
++	struct sched_wfs_entity		wfs;
++	/*6118*/
+ #ifdef CONFIG_SCHED_CLASS_EXT
+ 	struct sched_ext_entity		scx;
+ #endif
+diff --git a/linux/include/linux/sched/prio.h b/linux/include/linux/sched/prio.h
+index 6ab43b4f7..a8593da48 100644
+--- a/linux/include/linux/sched/prio.h
++++ b/linux/include/linux/sched/prio.h
+@@ -19,6 +19,12 @@
+ #define MAX_PRIO		(MAX_RT_PRIO + NICE_WIDTH)
+ #define DEFAULT_PRIO		(MAX_RT_PRIO + NICE_WIDTH / 2)
+ 
++/* 6118 */
++#define MAX_WFS_PRIO		139
++#define MIN_WFS_PRIO		100
++#define WFS_PRIO_WIDTH		(MAX_WFS_PRIO - MIN_WFS_PRIO + 1)
++/* 6118 */
++
+ /*
+  * Convert user-nice values [ -20 ... 0 ... 19 ]
+  * to static priority [ MAX_RT_PRIO..MAX_PRIO-1 ],
+diff --git a/linux/include/uapi/linux/sched.h b/linux/include/uapi/linux/sched.h
+index 359a14cc7..77e5367dc 100644
+--- a/linux/include/uapi/linux/sched.h
++++ b/linux/include/uapi/linux/sched.h
+@@ -119,7 +119,7 @@ struct clone_args {
+ #define SCHED_IDLE		5
+ #define SCHED_DEADLINE		6
+ #define SCHED_EXT		7
+-
++#define SCHED_WFS		8
+ /* Can be ORed in to make sure the process is reverted back to SCHED_NORMAL on fork */
+ #define SCHED_RESET_ON_FORK     0x40000000
+ 
+diff --git a/linux/kernel/sched/Makefile b/linux/kernel/sched/Makefile
+index 976092b7b..4b343f051 100644
+--- a/linux/kernel/sched/Makefile
++++ b/linux/kernel/sched/Makefile
+@@ -30,5 +30,8 @@ endif
+ #
+ obj-y += core.o
+ obj-y += fair.o
++#6118
++obj-y += wfs.o
++#6118
+ obj-y += build_policy.o
+ obj-y += build_utility.o
+diff --git a/linux/kernel/sched/core.c b/linux/kernel/sched/core.c
+index 042351c7a..a0a61d2ca 100644
+--- a/linux/kernel/sched/core.c
++++ b/linux/kernel/sched/core.c
+@@ -169,6 +169,10 @@ static inline int __task_prio(const struct task_struct *p)
+ 	if (rt_or_dl_prio(p->prio))
+ 		return p->prio; /* [-1, 99] */
+ 
++	/* 6118 */
++	if (p->sched_class == &wfs_sched_class)
++		 return MAX_WFS_PRIO;
++	/* 6118 */
+ 	if (p->sched_class == &idle_sched_class)
+ 		return MAX_RT_PRIO + NICE_WIDTH; /* 140 */
+ 
+@@ -4508,6 +4512,14 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
+ 	p->rt.time_slice	= sched_rr_timeslice;
+ 	p->rt.on_rq		= 0;
+ 	p->rt.on_list		= 0;
++	
++	/* 6118 */
++	INIT_LIST_HEAD(&p->wfs.run_list);
++	p->wfs.time_slice = 0;
++	p->wfs.exec_start = 0;
++	p->wfs.sum_exec_runtime = 0;
++	p->wfs.prev_sum_exec_runtime = 0;
++	/* 6118 */
+ 
+ #ifdef CONFIG_SCHED_CLASS_EXT
+ 	init_scx_entity(&p->scx);
+@@ -7108,6 +7120,10 @@ const struct sched_class *__setscheduler_class(int policy, int prio)
+ 	if (rt_prio(prio))
+ 		return &rt_sched_class;
+ 
++	/* 6118 */
++	if (policy == SCHED_WFS)
++		return &wfs_sched_class;
++	/* 6118 */
+ #ifdef CONFIG_SCHED_CLASS_EXT
+ 	if (task_should_scx(policy))
+ 		return &ext_sched_class;
+@@ -8553,6 +8569,11 @@ void __init sched_init(void)
+ 		init_cfs_rq(&rq->cfs);
+ 		init_rt_rq(&rq->rt);
+ 		init_dl_rq(&rq->dl);
++		
++		/* 6118 */
++		init_wfs_rq(&rq->wfs);
++		/* 6118 */
++
+ #ifdef CONFIG_FAIR_GROUP_SCHED
+ 		INIT_LIST_HEAD(&rq->leaf_cfs_rq_list);
+ 		rq->tmp_alone_branch = &rq->leaf_cfs_rq_list;
+diff --git a/linux/kernel/sched/sched.h b/linux/kernel/sched/sched.h
+index 023b84415..942ae2416 100644
+--- a/linux/kernel/sched/sched.h
++++ b/linux/kernel/sched/sched.h
+@@ -898,6 +898,19 @@ struct dl_rq {
+ 	u64			bw_ratio;
+ };
+ 
++
++/*6118*/
++
++struct wfs_rq {
++    struct list_head queue;
++    unsigned int wfs_nr_running;
++};
++
++
++/*6118*/
++
++
++
+ #ifdef CONFIG_FAIR_GROUP_SCHED
+ 
+ /* An entity is a task if it doesn't "own" a runqueue */
+@@ -1100,6 +1113,8 @@ DECLARE_STATIC_KEY_FALSE(sched_uclamp_used);
+  * (such as the load balancing or the thread migration code), lock
+  * acquire operations must be ordered by ascending &runqueue.
+  */
++
++
+ struct rq {
+ 	/* runqueue lock: */
+ 	raw_spinlock_t		__lock;
+@@ -1135,6 +1150,9 @@ struct rq {
+ 	struct cfs_rq		cfs;
+ 	struct rt_rq		rt;
+ 	struct dl_rq		dl;
++	/*6118*/
++	struct wfs_rq		wfs;
++	/*6118*/
+ #ifdef CONFIG_SCHED_CLASS_EXT
+ 	struct scx_rq		scx;
+ #endif
+@@ -2542,6 +2560,12 @@ extern const struct sched_class stop_sched_class;
+ extern const struct sched_class dl_sched_class;
+ extern const struct sched_class rt_sched_class;
+ extern const struct sched_class fair_sched_class;
++
++/*6118*/
++extern const struct sched_class wfs_sched_class;
++extern void init_wfs_rq(struct wfs_rq *wfs_rq);
++/*6118*/
++
+ extern const struct sched_class idle_sched_class;
+ 
+ /*
+diff --git a/linux/kernel/sched/syscalls.c b/linux/kernel/sched/syscalls.c
+index 456d339be..bcd5c07eb 100644
+--- a/linux/kernel/sched/syscalls.c
++++ b/linux/kernel/sched/syscalls.c
+@@ -554,7 +554,10 @@ int __sched_setscheduler(struct task_struct *p,
+ 	if ((dl_policy(policy) && !__checkparam_dl(attr)) ||
+ 	    (rt_policy(policy) != (attr->sched_priority != 0)))
+ 		return -EINVAL;
+-
++	/* 6118 */
++	if (policy == SCHED_WFS && attr->sched_priority != 0)
++		return -EINVAL;
++	/* 6118 */
+ 	if (user) {
+ 		retval = user_check_sched_setscheduler(p, attr, policy, reset_on_fork);
+ 		if (retval)
+diff --git a/linux/kernel/sched/wfs.c b/linux/kernel/sched/wfs.c
+new file mode 100644
+index 000000000..e5f75ecb9
+--- /dev/null
++++ b/linux/kernel/sched/wfs.c
+@@ -0,0 +1,74 @@
++/* 6118 */
++#include "sched.h"
++#include "wfs.h"
++
++static void enqueue_task_wfs(struct rq *rq, struct task_struct *p, int flags)
++{
++    struct wfs_rq *wfs_rq = &rq->wfs;
++    
++    list_add_tail(&p->wfs.run_list, &wfs_rq->queue);
++    wfs_rq->wfs_nr_running++;
++    p->wfs.exec_start = rq_clock_task(rq);
++    
++    printk_once(KERN_INFO "WFS: First task enqueued\n");
++}
++
++static void dequeue_task_wfs(struct rq *rq, struct task_struct *p, int flags)
++{
++    struct wfs_rq *wfs_rq = &rq->wfs;
++    
++    list_del(&p->wfs.run_list);
++    wfs_rq->wfs_nr_running--;
++}
++
++static struct task_struct *pick_next_task_wfs(struct rq *rq)
++{
++    struct wfs_rq *wfs_rq = &rq->wfs;
++    struct sched_wfs_entity *wfs_se;
++    
++    if (list_empty(&wfs_rq->queue))
++        return NULL;
++        
++    wfs_se = list_first_entry(&wfs_rq->queue, struct sched_wfs_entity, run_list);
++    return task_of_wfs(wfs_se);
++}
++
++static void put_prev_task_wfs(struct rq *rq, struct task_struct *p)
++{
++    struct wfs_rq *wfs_rq = &rq->wfs;
++    
++    /* Move task to end of queue for round-robin */
++    list_move_tail(&p->wfs.run_list, &wfs_rq->queue);
++}
++
++static void set_next_task_wfs(struct rq *rq, struct task_struct *p, bool first)
++{
++    p->wfs.exec_start = rq_clock_task(rq);
++}
++
++static void task_tick_wfs(struct rq *rq, struct task_struct *p, int queued)
++{
++    /* Basic time slice handling - placeholder */
++}
++
++static void switched_to_wfs(struct rq *rq, struct task_struct *p)
++{
++    printk_ratelimited(KERN_INFO "WFS: Task %d switched to WFS class\n", p->pid);
++}
++
++void init_wfs_rq(struct wfs_rq *wfs_rq)
++{
++    INIT_LIST_HEAD(&wfs_rq->queue);
++    wfs_rq->wfs_nr_running = 0;
++}
++
++const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
++    .enqueue_task = enqueue_task_wfs,
++    .dequeue_task = dequeue_task_wfs,
++    .pick_next_task = pick_next_task_wfs,
++    .put_prev_task = put_prev_task_wfs,
++    .set_next_task = set_next_task_wfs,
++    .task_tick = task_tick_wfs,
++    .switched_to = switched_to_wfs,
++};
++/* 6118 */
+diff --git a/linux/kernel/sched/wfs.h b/linux/kernel/sched/wfs.h
+new file mode 100644
+index 000000000..0e301590e
+--- /dev/null
++++ b/linux/kernel/sched/wfs.h
+@@ -0,0 +1,20 @@
++/* 6118 */
++#ifndef _KERNEL_SCHED_WFS_H
++#define _KERNEL_SCHED_WFS_H
++
++#include "sched.h"
++
++static inline struct task_struct *task_of_wfs(struct sched_wfs_entity *wfs_se)
++{
++    return container_of(wfs_se, struct task_struct, wfs);
++}
++
++static inline struct sched_wfs_entity *wfs_se_of(struct task_struct *p)
++{
++    return &p->wfs;
++}
++
++extern void init_wfs_rq(struct wfs_rq *wfs_rq);
++
++#endif /* _KERNEL_SCHED_WFS_H */
++/* 6118 */
