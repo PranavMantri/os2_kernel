@@ -7,19 +7,25 @@ static void enqueue_task_wfs(struct rq *rq, struct task_struct *p, int flags)
 {
     struct wfs_rq *wfs_rq = &rq->wfs;
     
-    list_add_tail(&p->wfs.run_list, &wfs_rq->queue);
-    wfs_rq->wfs_nr_running++;
-    p->wfs.exec_start = rq_clock_task(rq);
+    /* Only add if not already on queue */
+    if (list_empty(&p->wfs.run_list)) {
+        list_add_tail(&p->wfs.run_list, &wfs_rq->queue);
+        wfs_rq->wfs_nr_running++;
+        printk_once(KERN_INFO "WFS: First task enqueued\n");
+    }
     
-    printk_once(KERN_INFO "WFS: First task enqueued\n");
+    p->wfs.exec_start = rq_clock_task(rq);
 }
 
 static bool dequeue_task_wfs(struct rq *rq, struct task_struct *p, int flags)
 {
     struct wfs_rq *wfs_rq = &rq->wfs;
     
-    list_del(&p->wfs.run_list);
-    wfs_rq->wfs_nr_running--;
+    /* Only remove if actually on queue */
+    if (!list_empty(&p->wfs.run_list)) {
+        list_del_init(&p->wfs.run_list);
+        wfs_rq->wfs_nr_running--;
+    }
     
     return true;  /* Return true indicating task was dequeued */
 }
@@ -40,8 +46,11 @@ static void put_prev_task_wfs(struct rq *rq, struct task_struct *p, struct task_
 {
     struct wfs_rq *wfs_rq = &rq->wfs;
     
-    /* Move task to end of queue for round-robin */
-    list_move_tail(&p->wfs.run_list, &wfs_rq->queue);
+    /* Only move if task is still on the queue and we're not switching away from WFS */
+    if (!list_empty(&p->wfs.run_list) && next && next->sched_class == &wfs_sched_class) {
+        /* Move current task to end of queue for round-robin */
+        list_move_tail(&p->wfs.run_list, &wfs_rq->queue);
+    }
 }
 
 static void set_next_task_wfs(struct rq *rq, struct task_struct *p, bool first)
@@ -59,6 +68,11 @@ static void switched_to_wfs(struct rq *rq, struct task_struct *p)
     printk_ratelimited(KERN_INFO "WFS: Task %d switched to WFS class\n", p->pid);
 }
 
+static void switched_from_wfs(struct rq *rq, struct task_struct *p)
+{
+    /* Clean up when task leaves WFS */
+}
+
 void init_wfs_rq(struct wfs_rq *wfs_rq)
 {
     INIT_LIST_HEAD(&wfs_rq->queue);
@@ -73,5 +87,6 @@ const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .set_next_task = set_next_task_wfs,
     .task_tick = task_tick_wfs,
     .switched_to = switched_to_wfs,
+    .switched_from = switched_from_wfs,
 };
 /* 6118 */
