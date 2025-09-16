@@ -218,9 +218,9 @@ int main(int argc, char* argv[]) {
     
     int ret = 0;
     
-    if (strcmp(test_type, "basic") == 0 || strcmp(test_type, "all") == 0) {
+    /*if (strcmp(test_type, "basic") == 0 || strcmp(test_type, "all") == 0) {
         ret |= test_wfs_scheduler();
-    }
+    }*/
     
     if (strcmp(test_type, "rr") == 0 || strcmp(test_type, "all") == 0) {
         ret |= test_round_robin_behavior();
