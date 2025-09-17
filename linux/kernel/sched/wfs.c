@@ -43,15 +43,33 @@ static struct task_struct *pick_next_task_wfs(struct rq *rq, struct task_struct 
     struct sched_wfs_entity *wfs_se;
     struct task_struct *next_task;
     
+    /* Check if we have any WFS tasks */
+    if (!wfs_rq->wfs_nr_running) {
+        return NULL;
+    }
+    
     if (list_empty(&wfs_rq->queue)) {
-        printk(KERN_DEBUG "WFS: pick_next_task - queue empty, returning NULL\n");
+        /* This shouldn't happen if wfs_nr_running > 0, but be safe */
+        printk(KERN_WARNING "WFS: Queue empty but wfs_nr_running=%u, fixing\n", 
+               wfs_rq->wfs_nr_running);
+        wfs_rq->wfs_nr_running = 0;
         return NULL;
     }
         
     wfs_se = list_first_entry(&wfs_rq->queue, struct sched_wfs_entity, run_list);
     next_task = task_of_wfs(wfs_se);
     
-    printk(KERN_INFO "WFS: PICKED next task PID %d (prev was PID %d), %u tasks in queue\n", 
+    /* Validate the task is still runnable */
+    if (unlikely(!task_on_rq_queued(next_task))) {
+        printk(KERN_WARNING "WFS: Task PID %d not queued, skipping\n", 
+               next_task->pid);
+        /* Remove from queue and try again recursively (or return NULL) */
+        list_del_init(&next_task->wfs.run_list);
+        wfs_rq->wfs_nr_running--;
+        return pick_next_task_wfs(rq, prev);
+    }
+    
+    printk(KERN_DEBUG "WFS: PICKED next task PID %d (prev was PID %d), %u tasks in queue\n", 
            next_task->pid, prev ? prev->pid : -1, wfs_rq->wfs_nr_running);
     
     return next_task;
@@ -59,12 +77,15 @@ static struct task_struct *pick_next_task_wfs(struct rq *rq, struct task_struct 
 
 static void put_prev_task_wfs(struct rq *rq, struct task_struct *p, struct task_struct *next)
 {
-    printk(KERN_INFO "WFS: PUT_PREV task PID %d (next is PID %d)\n", 
+    printk(KERN_DEBUG "WFS: PUT_PREV task PID %d (next is PID %d)\n", 
            p->pid, next ? next->pid : -1);
-    /*
-     * Just clean up - don't do round-robin logic here.
-     * Round-robin requeuing happens in task_tick.
-     */
+    
+    /* Update execution time tracking */
+    if (p->wfs.exec_start) {
+        u64 delta_exec = rq_clock_task(rq) - p->wfs.exec_start;
+        p->se.sum_exec_runtime += delta_exec;
+        p->wfs.exec_start = 0;
+    }
 }
 
 static void set_next_task_wfs(struct rq *rq, struct task_struct *p, bool first)
@@ -73,7 +94,7 @@ static void set_next_task_wfs(struct rq *rq, struct task_struct *p, bool first)
     
     p->wfs.exec_start = rq_clock_task(rq);
     
-    printk(KERN_INFO "WFS: SET_NEXT task PID %d (first=%d), %u tasks in queue\n", 
+    printk(KERN_DEBUG "WFS: SET_NEXT task PID %d (first=%d), %u tasks in queue\n", 
            p->pid, first, wfs_rq->wfs_nr_running);
 }
 
@@ -81,15 +102,22 @@ static void task_tick_wfs(struct rq *rq, struct task_struct *p, int queued)
 {
     struct wfs_rq *wfs_rq = &rq->wfs;
     
-    printk(KERN_INFO "WFS: TASK_TICK PID %d (queued=%d), %u tasks in queue\n", 
+    printk(KERN_DEBUG "WFS: TASK_TICK PID %d (queued=%d), %u tasks in queue\n", 
            p->pid, queued, wfs_rq->wfs_nr_running);
     
+    /* Update runtime stats */
+    if (p->wfs.exec_start) {
+        u64 delta_exec = rq_clock_task(rq) - p->wfs.exec_start;
+        p->se.sum_exec_runtime += delta_exec;
+        p->wfs.exec_start = rq_clock_task(rq);
+    }
+    
     /* 
-     * Simple round-robin: if there are other WFS tasks waiting,
-     * requeue current task and trigger reschedule after each tick
+     * Round-robin: each task runs for exactly 1 tick
+     * If there are other WFS tasks waiting, preempt after every tick
      */
     if (wfs_rq->wfs_nr_running > 1) {
-        printk(KERN_INFO "WFS: Multiple tasks (%u) - requeuing PID %d and rescheduling\n", 
+        printk(KERN_DEBUG "WFS: Multiple tasks (%u) - preempting PID %d after 1 tick\n", 
                wfs_rq->wfs_nr_running, p->pid);
         
         /* Move current task to end of queue */
@@ -98,9 +126,9 @@ static void task_tick_wfs(struct rq *rq, struct task_struct *p, int queued)
         /* Trigger a reschedule to pick next task */
         resched_curr(rq);
         
-        printk(KERN_INFO "WFS: Task PID %d requeued and reschedule triggered\n", p->pid);
+        printk(KERN_DEBUG "WFS: Task PID %d preempted and moved to end of queue\n", p->pid);
     } else {
-        printk(KERN_INFO "WFS: Only 1 task (%u) - no preemption needed for PID %d\n", 
+        printk(KERN_DEBUG "WFS: Only 1 task (%u) - no preemption needed for PID %d\n", 
                wfs_rq->wfs_nr_running, p->pid);
     }
 }
@@ -111,6 +139,10 @@ static void switched_to_wfs(struct rq *rq, struct task_struct *p)
     
     printk(KERN_INFO "WFS: Task PID %d SWITCHED_TO WFS class, %u tasks in queue\n", 
            p->pid, wfs_rq->wfs_nr_running);
+    
+    /* If this task should preempt current task */
+    if (rq->curr != p && rq->curr->sched_class == &wfs_sched_class)
+        resched_curr(rq);
 }
 
 static void switched_from_wfs(struct rq *rq, struct task_struct *p)
@@ -119,7 +151,46 @@ static void switched_from_wfs(struct rq *rq, struct task_struct *p)
     
     printk(KERN_INFO "WFS: Task PID %d SWITCHED_FROM WFS class, %u tasks in queue\n", 
            p->pid, wfs_rq->wfs_nr_running);
+    
     /* Clean up when task leaves WFS */
+    if (p->wfs.exec_start) {
+        u64 delta_exec = rq_clock_task(rq) - p->wfs.exec_start;
+        p->se.sum_exec_runtime += delta_exec;
+        p->wfs.exec_start = 0;
+    }
+}
+
+static void check_preempt_curr_wfs(struct rq *rq, struct task_struct *p, int flags)
+{
+    /* For now, WFS is non-preemptive except for round-robin in task_tick */
+    /* Could add preemption logic here if needed */
+    printk(KERN_DEBUG "WFS: check_preempt_curr called for PID %d (flags=%d)\n", 
+           p->pid, flags);
+}
+
+static void wakeup_preempt_wfs(struct rq *rq, struct task_struct *p, int flags)
+{
+    /* 
+     * Called when a task wakes up to determine if it should preempt current task.
+     * For WFS round-robin, we don't do immediate preemption on wakeup.
+     * Tasks will be scheduled in round-robin order via task_tick.
+     */
+    printk(KERN_DEBUG "WFS: wakeup_preempt called for PID %d (flags=%d)\n", 
+           p->pid, flags);
+}
+
+static void update_curr_wfs(struct rq *rq)
+{
+    struct task_struct *curr = rq->curr;
+    
+    if (curr->sched_class != &wfs_sched_class)
+        return;
+        
+    if (curr->wfs.exec_start) {
+        u64 delta_exec = rq_clock_task(rq) - curr->wfs.exec_start;
+        curr->se.sum_exec_runtime += delta_exec;
+        curr->wfs.exec_start = rq_clock_task(rq);
+    }
 }
 
 void init_wfs_rq(struct wfs_rq *wfs_rq)
@@ -139,5 +210,7 @@ const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .task_tick = task_tick_wfs,
     .switched_to = switched_to_wfs,
     .switched_from = switched_from_wfs,
+    .wakeup_preempt = wakeup_preempt_wfs,
+    .update_curr = update_curr_wfs,
 };
 /* 6118 */
