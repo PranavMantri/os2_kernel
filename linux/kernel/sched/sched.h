@@ -217,12 +217,29 @@ static inline int dl_policy(int policy)
 	return policy == SCHED_DEADLINE;
 }
 
-static inline bool valid_policy(int policy)
+/*6118*/
+static inline int wfs_policy(int policy)
 {
-	return idle_policy(policy) || fair_policy(policy) ||
-		rt_policy(policy) || dl_policy(policy);
+        return policy == SCHED_WFS;
 }
-
+static bool valid_policy(int policy)
+{
+    bool result;
+    
+    // Always print for debugging
+    printk(KERN_INFO "WFS_DEBUG: valid_policy() called with policy=%d\n", policy);
+    
+    if (policy == SCHED_WFS) {
+        result = true;
+        printk(KERN_INFO "WFS_DEBUG: SCHED_WFS detected, returning TRUE\n");
+    } else {
+        result = policy >= SCHED_NORMAL && policy <= SCHED_DEADLINE && policy != 7;
+        printk(KERN_INFO "WFS_DEBUG: Non-WFS policy, result=%d\n", result);
+    }
+    
+    return result;
+}
+/*6118*/
 static inline int task_has_idle_policy(struct task_struct *p)
 {
 	return idle_policy(p->policy);
