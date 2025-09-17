@@ -201,6 +201,51 @@ void init_wfs_rq(struct wfs_rq *wfs_rq)
     printk(KERN_INFO "WFS: Runqueue initialized\n");
 }
 
+/* Most minimal SMP hooks for wfs scheduler */
+
+static int select_task_rq_wfs(struct task_struct *p, int cpu, int flags)
+{
+    /* Naive: just return current CPU */
+    return smp_processor_id();
+}
+
+static int balance_wfs(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
+{
+    /* No-op balancing - just return 0 (no tasks pulled) */
+    return 0;
+}
+
+static void migrate_task_rq_wfs(struct task_struct *p, int new_cpu)
+{
+    /* No-op - nothing to do when task migrates */
+}
+
+static void rq_online_wfs(struct rq *rq)
+{
+    /* No-op - nothing to do when CPU comes online */
+}
+
+static void rq_offline_wfs(struct rq *rq)
+{
+    /* No-op - nothing to do when CPU goes offline */
+}
+
+static void task_woken_wfs(struct rq *rq, struct task_struct *p)
+{
+    /* No-op - nothing to do after remote wakeup */
+}
+
+static void set_cpus_allowed_wfs(struct task_struct *p, struct affinity_context *ctx)
+{
+    /* No-op - don't handle CPU affinity changes */
+}
+
+static bool yield_to_task_wfs(struct rq *rq, struct task_struct *p)
+{
+    /* Return false - don't handle yield_to */
+    return false;
+}
+
 const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .enqueue_task = enqueue_task_wfs,
     .dequeue_task = dequeue_task_wfs,
@@ -212,5 +257,17 @@ const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .switched_from = switched_from_wfs,
     .wakeup_preempt = wakeup_preempt_wfs,
     .update_curr = update_curr_wfs,
+
+#ifdef CONFIG_SMP
+    .balance = balance_wfs,
+    .select_task_rq = select_task_rq_wfs,
+    .migrate_task_rq = migrate_task_rq_wfs,
+    .rq_online = rq_online_wfs,
+    .rq_offline = rq_offline_wfs,
+    .task_woken = task_woken_wfs,
+    .set_cpus_allowed = set_cpus_allowed_wfs,
+    .yield_to_task = yield_to_task_wfs,
+#endif
 };
+
 /* 6118 */

@@ -582,7 +582,7 @@ recheck:
 	    printk(KERN_INFO "WFS_DEBUG: WFS priority validation passed\n");
 	}
 
-	printk(KERN_INFO "WFS_DEBUG: All validations passed for policy=%d\n", policy);
+	// printk(KERN_INFO "WFS_DEBUG: All validations passed for policy=%d\n", policy);
 	/* 6118 */
 	if (user) {
 		retval = user_check_sched_setscheduler(p, attr, policy, reset_on_fork);
