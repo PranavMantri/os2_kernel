@@ -42,36 +42,26 @@ static struct task_struct *pick_next_task_wfs(struct rq *rq, struct task_struct 
     struct wfs_rq *wfs_rq = &rq->wfs;
     struct sched_wfs_entity *wfs_se;
     struct task_struct *next_task;
-    
+
     /* Check if we have any WFS tasks */
     if (!wfs_rq->wfs_nr_running) {
         return NULL;
     }
-    
+
     if (list_empty(&wfs_rq->queue)) {
         /* This shouldn't happen if wfs_nr_running > 0, but be safe */
-        printk(KERN_WARNING "WFS: Queue empty but wfs_nr_running=%u, fixing\n", 
+        printk(KERN_WARNING "WFS: Queue empty but wfs_nr_running=%u, fixing\n",
                wfs_rq->wfs_nr_running);
         wfs_rq->wfs_nr_running = 0;
         return NULL;
     }
-        
+
     wfs_se = list_first_entry(&wfs_rq->queue, struct sched_wfs_entity, run_list);
     next_task = task_of_wfs(wfs_se);
-    
-    /* Validate the task is still runnable */
-    if (unlikely(!task_on_rq_queued(next_task))) {
-        printk(KERN_WARNING "WFS: Task PID %d not queued, skipping\n", 
-               next_task->pid);
-        /* Remove from queue and try again recursively (or return NULL) */
-        list_del_init(&next_task->wfs.run_list);
-        wfs_rq->wfs_nr_running--;
-        return pick_next_task_wfs(rq, prev);
-    }
-    
-    printk(KERN_DEBUG "WFS: PICKED next task PID %d (prev was PID %d), %u tasks in queue\n", 
+
+    printk(KERN_DEBUG "WFS: PICKED next task PID %d (prev was PID %d), %u tasks in queue\n",
            next_task->pid, prev ? prev->pid : -1, wfs_rq->wfs_nr_running);
-    
+
     return next_task;
 }
 
@@ -257,6 +247,7 @@ const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .switched_from = switched_from_wfs,
     .wakeup_preempt = wakeup_preempt_wfs,
     .update_curr = update_curr_wfs,
+    .yield_to_task = yield_to_task_wfs,
 
 #ifdef CONFIG_SMP
     .balance = balance_wfs,
@@ -266,8 +257,6 @@ const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .rq_offline = rq_offline_wfs,
     .task_woken = task_woken_wfs,
     .set_cpus_allowed = set_cpus_allowed_wfs,
-    .yield_to_task = yield_to_task_wfs,
 #endif
 };
-
 /* 6118 */
