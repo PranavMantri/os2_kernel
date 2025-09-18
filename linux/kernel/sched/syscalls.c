@@ -519,8 +519,8 @@ int __sched_setscheduler(struct task_struct *p,
 {
 
 	int oldpolicy = -1, policy = attr->sched_policy;
-	printk(KERN_INFO "WFS_DEBUG: __sched_setscheduler() called with policy=%d, priority=%d\n",
-           policy, attr ? attr->sched_priority : -999);
+	//printk(KERN_INFO "WFS_DEBUG: __sched_setscheduler() called with policy=%d, priority=%d\n",
+          // policy, attr ? attr->sched_priority : -999);
 	int retval, oldprio, newprio, queued, running;
 	const struct sched_class *prev_class, *next_class;
 	struct balance_callback *head;
@@ -562,24 +562,24 @@ recheck:
 	*/
 
 	if (attr->sched_priority > MAX_RT_PRIO-1) {
-	    printk(KERN_INFO "WFS_DEBUG: Priority %d > MAX_RT_PRIO-1, rejecting\n", attr->sched_priority);
+	  //  printk(KERN_INFO "WFS_DEBUG: Priority %d > MAX_RT_PRIO-1, rejecting\n", attr->sched_priority);
 	    return -EINVAL;
 	}
 	if ((dl_policy(policy) && !__checkparam_dl(attr)) ||
 	    (rt_policy(policy) != (attr->sched_priority != 0))) {
-	    printk(KERN_INFO "WFS_DEBUG: dl_policy or rt_policy validation failed for policy=%d\n", policy);
+	    //printk(KERN_INFO "WFS_DEBUG: dl_policy or rt_policy validation failed for policy=%d\n", policy);
 	    return -EINVAL;
 	}
 
 	/* SCHED_WFS: only priority 0 allowed */
 	if (policy == SCHED_WFS) {
-	    printk(KERN_INFO "WFS_DEBUG: Validating WFS with priority=%d\n", attr->sched_priority);
+	    //printk(KERN_INFO "WFS_DEBUG: Validating WFS with priority=%d\n", attr->sched_priority);
 	    if (attr->sched_priority != 0) {
-		printk(KERN_ERR "WFS_DEBUG: Invalid priority %d for WFS (must be 0)\n",
-		       attr->sched_priority);
+	//	printk(KERN_ERR "WFS_DEBUG: Invalid priority %d for WFS (must be 0)\n",
+	//	       attr->sched_priority);
 		return -EINVAL;
 	    }
-	    printk(KERN_INFO "WFS_DEBUG: WFS priority validation passed\n");
+	  //  printk(KERN_INFO "WFS_DEBUG: WFS priority validation passed\n");
 	}
 
 	// printk(KERN_INFO "WFS_DEBUG: All validations passed for policy=%d\n", policy);
