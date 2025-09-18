@@ -919,10 +919,11 @@ struct dl_rq {
 /*6118*/
 
 struct wfs_rq {
-    struct list_head queue;
-    unsigned int wfs_nr_running;
+    struct rb_root_cached   tasks_timeline;  // Leftmost-cached RB-tree for O(1) min-VFT
+    struct list_head        queue;           // Keep for fallback or debugging
+    unsigned int            wfs_nr_running;
+    u64                     min_vruntime;    // Track minimum virtual runtime on this CPU
 };
-
 
 /*6118*/
 

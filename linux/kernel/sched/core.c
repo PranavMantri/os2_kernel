@@ -4515,10 +4515,15 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	
 	/* 6118 */
 	INIT_LIST_HEAD(&p->wfs.run_list);
-	p->wfs.time_slice = 0;
-	p->wfs.exec_start = 0;
-	p->wfs.sum_exec_runtime = 0;
-	p->wfs.prev_sum_exec_runtime = 0;
+        RB_CLEAR_NODE(&p->wfs.run_node);           /* Initialize rb_node as empty */
+        p->wfs.time_slice = 0;
+        p->wfs.exec_start = 0;
+        p->wfs.sum_exec_runtime = 0;
+        p->wfs.prev_sum_exec_runtime = 0;
+        p->wfs.vruntime = 0;                       /* Initialize virtual time */
+        p->wfs.vft = 0;                           /* Initialize virtual finishing time */
+        p->wfs.weight = 0;                        /* Will be set to default in place_entity */
+        p->wfs.inv_weight = 0;
 	/* 6118 */
 
 #ifdef CONFIG_SCHED_CLASS_EXT

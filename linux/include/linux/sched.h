@@ -721,13 +721,24 @@ struct sched_dl_entity {
 
 
 /* 6118*/
+
 struct sched_wfs_entity {
-    struct list_head        run_list;
-    unsigned long           time_slice;
+    struct rb_node          run_node;        // Node in the RB-tree
+    struct list_head        run_list;        // Keep for compatibility
+    
+    // Timing fields
+    unsigned long           time_slice;      // Still 1 tick
     u64                     exec_start;
     u64                     sum_exec_runtime;
     u64                     prev_sum_exec_runtime;
+    
+    // Virtual time fields
+    u64                     vruntime;        // Virtual runtime (scaled)
+    u64                     vft;             // Virtual finishing time (scaled)
+    u32                     weight;          // Task weight (default could be 1024)
+    u64                     inv_weight;      // Precomputed inverse weight for efficiency
 };
+
 /*6118*/
 
 
