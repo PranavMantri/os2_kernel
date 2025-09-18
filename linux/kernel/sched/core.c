@@ -4747,7 +4747,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	 */
 	if (unlikely(p->sched_reset_on_fork)) {
 		if (task_has_dl_policy(p) || task_has_rt_policy(p)) {
-			p->policy = SCHED_NORMAL;
+			p->policy = SCHED_WFS;
 			p->static_prio = NICE_TO_PRIO(0);
 			p->rt_priority = 0;
 		} else if (PRIO_TO_NICE(p->static_prio) < 0)
@@ -4777,7 +4777,9 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 		p->sched_class = &ext_sched_class;
 #endif
 	} else {
-		p->sched_class = &fair_sched_class;
+		/*6118*/
+		p->sched_class = &wfs_sched_class;
+		/*6118*/
 	}
 
 	init_entity_runnable_average(&p->se);
@@ -6038,8 +6040,8 @@ __pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 	 * higher scheduling class, because otherwise those lose the
 	 * opportunity to pull in more work from other CPUs.
 	 */
-	if (likely(!sched_class_above(prev->sched_class, &fair_sched_class) &&
-		   rq->nr_running == rq->cfs.h_nr_queued)) {
+	if (0) /*if (likely(!sched_class_above(prev->sched_class, &fair_sched_class) &&
+		   rq->nr_running == rq->cfs.h_nr_queued))*/ {
 
 		p = pick_next_task_fair(rq, prev, rf);
 		if (unlikely(p == RETRY_TASK))
@@ -8499,7 +8501,11 @@ void __init sched_init(void)
 	BUG_ON(!sched_class_above(&stop_sched_class, &dl_sched_class));
 #endif
 	BUG_ON(!sched_class_above(&dl_sched_class, &rt_sched_class));
-	BUG_ON(!sched_class_above(&rt_sched_class, &fair_sched_class));
+	//BUG_ON(!sched_class_above(&rt_sched_class, &fair_sched_class));
+	/*6118*/
+	BUG_ON(!sched_class_above(&rt_sched_class, &wfs_sched_class));
+	BUG_ON(!sched_class_above(&wfs_sched_class, &fair_sched_class));
+	/*6118*/
 	BUG_ON(!sched_class_above(&fair_sched_class, &idle_sched_class));
 #ifdef CONFIG_SCHED_CLASS_EXT
 	BUG_ON(!sched_class_above(&fair_sched_class, &ext_sched_class));
@@ -8856,10 +8862,11 @@ EXPORT_SYMBOL_GPL(__cant_migrate);
 void normalize_rt_tasks(void)
 {
 	struct task_struct *g, *p;
+	/*6118*/
 	struct sched_attr attr = {
-		.sched_policy = SCHED_NORMAL,
+		.sched_policy = SCHED_WFS,
 	};
-
+	/*6118*/
 	read_lock(&tasklist_lock);
 	for_each_process_thread(g, p) {
 		/*

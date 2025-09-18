@@ -4003,7 +4003,11 @@ static int scx_ops_init_task(struct task_struct *p, struct task_group *tg, bool 
 			 * @p can never be in SCX.
 			 */
 			if (p->policy == SCHED_EXT) {
-				p->policy = SCHED_NORMAL;
+				/*6118*/
+				p->policy = SCHED_WFS;
+				/*6118*/
+				
+				//p->policy = SCHED_NORMAL;
 				atomic_long_inc(&scx_nr_rejected);
 			}
 

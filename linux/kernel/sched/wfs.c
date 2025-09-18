@@ -51,7 +51,7 @@ static struct task_struct *pick_next_task_wfs(struct rq *rq, struct task_struct 
     if (list_empty(&wfs_rq->queue)) {
         /* This shouldn't happen if wfs_nr_running > 0, but be safe */
         //printk(KERN_WARNING "WFS: Queue empty but wfs_nr_running=%u, fixing\n",
-               wfs_rq->wfs_nr_running);
+         //      wfs_rq->wfs_nr_running);
         wfs_rq->wfs_nr_running = 0;
         return NULL;
     }
@@ -67,8 +67,8 @@ static struct task_struct *pick_next_task_wfs(struct rq *rq, struct task_struct 
 
 static void put_prev_task_wfs(struct rq *rq, struct task_struct *p, struct task_struct *next)
 {
-    printk(KERN_DEBUG "WFS: PUT_PREV task PID %d (next is PID %d)\n", 
-           p->pid, next ? next->pid : -1);
+   // printk(KERN_DEBUG "WFS: PUT_PREV task PID %d (next is PID %d)\n", 
+        //   p->pid, next ? next->pid : -1);
     
     /* Update execution time tracking */
     if (p->wfs.exec_start) {
@@ -84,8 +84,8 @@ static void set_next_task_wfs(struct rq *rq, struct task_struct *p, bool first)
     
     p->wfs.exec_start = rq_clock_task(rq);
     
-    printk(KERN_DEBUG "WFS: SET_NEXT task PID %d (first=%d), %u tasks in queue\n", 
-           p->pid, first, wfs_rq->wfs_nr_running);
+    //printk(KERN_DEBUG "WFS: SET_NEXT task PID %d (first=%d), %u tasks in queue\n", 
+      //     p->pid, first, wfs_rq->wfs_nr_running);
 }
 
 static void task_tick_wfs(struct rq *rq, struct task_struct *p, int queued)
@@ -107,8 +107,8 @@ static void task_tick_wfs(struct rq *rq, struct task_struct *p, int queued)
      * If there are other WFS tasks waiting, preempt after every tick
      */
     if (wfs_rq->wfs_nr_running > 1) {
-        printk(KERN_DEBUG "WFS: Multiple tasks (%u) - preempting PID %d after 1 tick\n", 
-               wfs_rq->wfs_nr_running, p->pid);
+       // printk(KERN_DEBUG "WFS: Multiple tasks (%u) - preempting PID %d after 1 tick\n", 
+       //        wfs_rq->wfs_nr_running, p->pid);
         
         /* Move current task to end of queue */
         list_move_tail(&p->wfs.run_list, &wfs_rq->queue);
@@ -118,8 +118,8 @@ static void task_tick_wfs(struct rq *rq, struct task_struct *p, int queued)
         
         //printk(KERN_DEBUG "WFS: Task PID %d preempted and moved to end of queue\n", p->pid);
     } else {
-        printk(KERN_DEBUG "WFS: Only 1 task (%u) - no preemption needed for PID %d\n", 
-               wfs_rq->wfs_nr_running, p->pid);
+        //printk(KERN_DEBUG "WFS: Only 1 task (%u) - no preemption needed for PID %d\n", 
+          //     wfs_rq->wfs_nr_running, p->pid);
     }
 }
 
@@ -235,7 +235,17 @@ static bool yield_to_task_wfs(struct rq *rq, struct task_struct *p)
     /* Return false - don't handle yield_to */
     return false;
 }
-
+static void yield_task_wfs(struct rq *rq)
+{
+    struct task_struct *curr = rq->curr;
+    struct wfs_rq *wfs_rq = &rq->wfs;
+    
+    /* Move current task to end of queue, like round-robin does */
+    if (wfs_rq->wfs_nr_running > 1) {
+        list_move_tail(&curr->wfs.run_list, &wfs_rq->queue);
+        resched_curr(rq);
+    }
+}
 const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .enqueue_task = enqueue_task_wfs,
     .dequeue_task = dequeue_task_wfs,
@@ -248,6 +258,7 @@ const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .wakeup_preempt = wakeup_preempt_wfs,
     .update_curr = update_curr_wfs,
     .yield_to_task = yield_to_task_wfs,
+    .yield_task = yield_task_wfs,
 
 #ifdef CONFIG_SMP
     .balance = balance_wfs,

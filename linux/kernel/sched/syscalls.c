@@ -1525,6 +1525,9 @@ SYSCALL_DEFINE1(sched_get_priority_max, int, policy)
 	case SCHED_BATCH:
 	case SCHED_IDLE:
 	case SCHED_EXT:
+		/*6118*/
+	case SCHED_WFS:
+		/*6118*/
 		ret = 0;
 		break;
 	}
@@ -1553,6 +1556,9 @@ SYSCALL_DEFINE1(sched_get_priority_min, int, policy)
 	case SCHED_BATCH:
 	case SCHED_IDLE:
 	case SCHED_EXT:
+		/*6118*/
+	case SCHED_WFS:
+		/*6118*/
 		ret = 0;
 	}
 	return ret;

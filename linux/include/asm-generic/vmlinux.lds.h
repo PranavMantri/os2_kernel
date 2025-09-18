@@ -140,9 +140,9 @@ defined(CONFIG_AUTOFDO_CLANG) || defined(CONFIG_PROPELLER_CLANG)
 	*(__stop_sched_class)			\
 	*(__dl_sched_class)			\
 	*(__rt_sched_class)			\
+	*(__wfs_sched_class)			\
 	*(__fair_sched_class)			\
 	*(__ext_sched_class)			\
-	*(__wfs_sched_class)			\
 	*(__idle_sched_class)			\
 	__sched_class_lowest = .;
 /* 6118 */
