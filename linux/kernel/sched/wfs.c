@@ -11,7 +11,7 @@ static void enqueue_task_wfs(struct rq *rq, struct task_struct *p, int flags)
     if (list_empty(&p->wfs.run_list)) {
         list_add_tail(&p->wfs.run_list, &wfs_rq->queue);
         wfs_rq->wfs_nr_running++;
-        
+        add_nr_running(rq, 1);
         //printk(KERN_INFO "WFS: PID %d ENQUEUED (flags=%d), runqueue now has %u tasks\n", 
        //        p->pid, flags, wfs_rq->wfs_nr_running);
     } else {
@@ -27,7 +27,7 @@ static bool dequeue_task_wfs(struct rq *rq, struct task_struct *p, int flags)
     if (!list_empty(&p->wfs.run_list)) {
         list_del_init(&p->wfs.run_list);
         wfs_rq->wfs_nr_running--;
-        
+	sub_nr_running(rq, 1);
         //printk(KERN_INFO "WFS: PID %d DEQUEUED (flags=%d), runqueue now has %u tasks\n", 
      //          p->pid, flags, wfs_rq->wfs_nr_running);
     } else {
@@ -246,6 +246,12 @@ static void yield_task_wfs(struct rq *rq)
         resched_curr(rq);
     }
 }
+
+static void prio_changed_wfs(struct rq *rq, struct task_struct *p, int oldprio)
+{
+    /* No-op - WFS doesn't use priority levels */
+}
+
 const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .enqueue_task = enqueue_task_wfs,
     .dequeue_task = dequeue_task_wfs,
@@ -259,7 +265,7 @@ const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .update_curr = update_curr_wfs,
     .yield_to_task = yield_to_task_wfs,
     .yield_task = yield_task_wfs,
-
+    .prio_changed = prio_changed_wfs,
 #ifdef CONFIG_SMP
     .balance = balance_wfs,
     .select_task_rq = select_task_rq_wfs,
