@@ -4781,6 +4781,10 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	} else if (task_should_scx(p->policy)) {
 		p->sched_class = &ext_sched_class;
 #endif
+	/* 6118 */
+	} else if (current->sched_class == &wfs_sched_class) {
+		p->sched_class = &wfs_sched_class;
+	/* 6118 */
 	} else {
 		p->sched_class = &fair_sched_class;
 	}

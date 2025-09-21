@@ -243,8 +243,8 @@ static void task_tick_wfs(struct rq *rq, struct task_struct *p, int queued)
 
         printk(KERN_DEBUG "WFS: Task PID %d preempted, will be repositioned based on updated VFT\n", p->pid);
     } else {
-        printk(KERN_DEBUG "WFS: Only 1 task (%u) - no preemption needed for PID %d\n",
-               wfs_rq->wfs_nr_running, p->pid);
+        // printk(KERN_DEBUG "WFS: Only 1 task (%u) - no preemption needed for PID %d\n",
+        //        wfs_rq->wfs_nr_running, p->pid);
     }
 }
 
