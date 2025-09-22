@@ -16,7 +16,7 @@
 #include <linux/plist.h>
 
 #include <linux/uaccess.h>
-
+#include <linux/sched/wfs.h>
 static struct signal_struct init_signals = {
 	.nr_threads	= 1,
 	.thread_head	= LIST_HEAD_INIT(init_task.thread_node),
@@ -72,10 +72,12 @@ struct task_struct init_task __aligned(L1_CACHE_BYTES) = {
 	.stack		= init_stack,
 	.usage		= REFCOUNT_INIT(2),
 	.flags		= PF_KTHREAD,
-	.prio		= MAX_PRIO - 20,
-	.static_prio	= MAX_PRIO - 20,
-	.normal_prio	= MAX_PRIO - 20,
-	.policy		= SCHED_NORMAL,
+/*6118*/
+	.prio           = MAX_PRIO - 20,
+	.static_prio    = MAX_PRIO - 20,
+	.normal_prio    = MAX_PRIO - 20,
+	.policy         = SCHED_WFS,
+/*6118*/
 	.cpus_ptr	= &init_task.cpus_mask,
 	.user_cpus_ptr	= NULL,
 	.cpus_mask	= CPU_MASK_ALL,
