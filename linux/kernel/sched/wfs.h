@@ -4,6 +4,8 @@
 
 #include "sched.h"
 
+#define WFS_PRIO_BASE    140    /* Start after normal priority range (100-139) */
+#define WFS_DEFAULT_PRIO 140    /* Default WFS priority */
 static inline struct task_struct *task_of_wfs(struct sched_wfs_entity *wfs_se)
 {
     return container_of(wfs_se, struct task_struct, wfs);
