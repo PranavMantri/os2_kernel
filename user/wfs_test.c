@@ -118,6 +118,12 @@ int test_round_robin_behavior() {
     
     param.sched_priority = 0;
     
+    // Set to WFS scheduler
+    if (sched_setscheduler(0, SCHED_WFS, &param) != 0) {
+	printf("Parent failed to set WFS scheduler: %s\n", strerror(errno));
+	exit(1);
+    }
+            
     // Create 3 child processes
     for (int i = 0; i < 3; i++) {
         pids[i] = fork();
@@ -126,12 +132,6 @@ int test_round_robin_behavior() {
             // Child process
             char task_name[32];
             snprintf(task_name, sizeof(task_name), "WFS-Task-%d", i+1);
-            
-            // Set to WFS scheduler
-            if (sched_setscheduler(0, SCHED_WFS, &param) != 0) {
-                printf("Child %d failed to set WFS scheduler: %s\n", i+1, strerror(errno));
-                exit(1);
-            }
             
             // Run CPU-intensive work
             cpu_intensive_work(task_name, 10);
