@@ -8,14 +8,9 @@
 #include <linux/uaccess.h>
 #include <linux/capability.h>
 #include <linux/errno.h>
-
+#include <uapi/linux/wfs.h>
 #define MAX_CPUS 8
 
-struct wfs_info {
-    int num_cpus;
-    int nr_running[MAX_CPUS];
-    int total_weight[MAX_CPUS];
-};
 
 /*
  * get_wfs_info - Get WFS scheduler information
@@ -74,8 +69,3 @@ SYSCALL_DEFINE1(set_wfs_weight, int, weight)
     return 0;
 }
 
-/*
- * Export symbols if needed by other kernel modules
- */
-EXPORT_SYMBOL_GPL(get_wfs_info);
-EXPORT_SYMBOL_GPL(set_wfs_weight);
