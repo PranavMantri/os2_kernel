@@ -114,7 +114,7 @@ static bool dequeue_task_wfs(struct rq *rq, struct task_struct *p, int flags)
     return true;
 }
 
-static struct task_struct *pick_next_task_wfs(struct rq *rq, struct task_struct *prev)
+static struct task_struct *pick_task_wfs(struct rq *rq)
 {
     struct wfs_rq *wfs_rq = &rq->wfs;
     struct sched_wfs_entity *wfs_se;
@@ -139,8 +139,8 @@ static struct task_struct *pick_next_task_wfs(struct rq *rq, struct task_struct 
     wfs_se = rb_entry(leftmost, struct sched_wfs_entity, run_node);
     next_task = task_of_wfs(wfs_se);
     
-    printk(KERN_DEBUG "WFS: PICKED next task PID %d (prev was PID %d), VFT=%llu, %u tasks in queue\n",
-           next_task->pid, prev ? prev->pid : -1, wfs_se->vft, wfs_rq->wfs_nr_running);
+    printk(KERN_DEBUG "WFS: PICKED task PID %d, VFT=%llu, %u tasks in queue\n",
+           next_task->pid, wfs_se->vft, wfs_rq->wfs_nr_running);
     
     return next_task;
 }
@@ -352,7 +352,7 @@ static bool yield_to_task_wfs(struct rq *rq, struct task_struct *p)
 const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .enqueue_task = enqueue_task_wfs,
     .dequeue_task = dequeue_task_wfs,
-    .pick_next_task = pick_next_task_wfs,
+    .pick_task = pick_task_wfs,
     .put_prev_task = put_prev_task_wfs,
     .set_next_task = set_next_task_wfs,
     .task_tick = task_tick_wfs,
