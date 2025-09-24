@@ -39,8 +39,8 @@ static void add_task_to_cpu_weight(struct wfs_rq *wfs_rq, u64 weight)
 {
     wfs_rq->cpu_total_weight += weight;
     
-    printk(KERN_DEBUG "WFS: Added weight %u to CPU, total weight now %llu\n",
-           weight, wfs_rq->cpu_total_weight);
+    //printk(KERN_DEBUG "WFS: Added weight %u to CPU, total weight now %llu\n",
+ //          weight, wfs_rq->cpu_total_weight);
 }
 
 /* Remove task weight from CPU's total weight */
@@ -49,12 +49,12 @@ static void remove_task_from_cpu_weight(struct wfs_rq *wfs_rq, u64 weight)
     if (wfs_rq->cpu_total_weight >= weight) {
         wfs_rq->cpu_total_weight -= weight;
     } else {
-        printk(KERN_WARNING "WFS: CPU weight underflow, resetting to 0\n");
-        wfs_rq->cpu_total_weight = 0;
+   //     printk(KERN_WARNING "WFS: CPU weight underflow, resetting to 0\n");
+    //    wfs_rq->cpu_total_weight = 0;
     }
     
-    printk(KERN_DEBUG "WFS: Removed weight %u from CPU, total weight now %llu\n",
-           weight, wfs_rq->cpu_total_weight);
+   // printk(KERN_DEBUG "WFS: Removed weight %u from CPU, total weight now %llu\n",
+         //  weight, wfs_rq->cpu_total_weight);
 }
 
 /* Update CPU virtual time based on execution time */
@@ -64,8 +64,8 @@ static void update_cpu_vtime(struct wfs_rq *wfs_rq, u64 delta_exec)
         u64 vtime_delta = (delta_exec * WFS_SCALE_FACTOR) / wfs_rq->cpu_total_weight;
         wfs_rq->cpu_vtime += vtime_delta;
         
-        printk(KERN_DEBUG "WFS: CPU vtime updated by %llu, now %llu (weight=%llu)\n",
-               vtime_delta, wfs_rq->cpu_vtime, wfs_rq->cpu_total_weight);
+     //   printk(KERN_DEBUG "WFS: CPU vtime updated by %llu, now %llu (weight=%llu)\n",
+       //        vtime_delta, wfs_rq->cpu_vtime, wfs_rq->cpu_total_weight);
     }
 }
 
@@ -112,8 +112,8 @@ static void place_entity(struct wfs_rq *wfs_rq, struct sched_wfs_entity *se, int
     /* Record which CPU this task is assigned to */
     se->assigned_cpu = cpu;
     
-    printk(KERN_DEBUG "WFS: Task placed with vruntime=%llu, VFT=%llu on CPU %d (CPU vtime=%llu)\n",
-           se->vruntime, se->vft, cpu, get_cpu_vtime(wfs_rq));
+   // printk(KERN_DEBUG "WFS: Task placed with vruntime=%llu, VFT=%llu on CPU %d (CPU vtime=%llu)\n",
+     //      se->vruntime, se->vft, cpu, get_cpu_vtime(wfs_rq));
 }
 
 /* Update min_vruntime for the runqueue */
@@ -236,8 +236,8 @@ static void put_prev_task_wfs(struct rq *rq, struct task_struct *p, struct task_
     u64 now = rq_clock_task(rq);
     int cpu = cpu_of(rq);
     
-    printk(KERN_DEBUG "WFS: PUT_PREV task PID %d on CPU %d (next is PID %d)\n",
-           p->pid, cpu, next ? next->pid : -1);
+    //printk(KERN_DEBUG "WFS: PUT_PREV task PID %d on CPU %d (next is PID %d)\n",
+      //     p->pid, cpu, next ? next->pid : -1);
     
     /* Update execution time and virtual runtime */
     if (se->exec_start) {
@@ -265,8 +265,8 @@ static void put_prev_task_wfs(struct rq *rq, struct task_struct *p, struct task_
             
             update_min_vruntime(wfs_rq);
             
-            printk(KERN_DEBUG "WFS: Task PID %d repositioned in RB-tree, new VFT=%llu\n",
-                   p->pid, se->vft);
+        //    printk(KERN_DEBUG "WFS: Task PID %d repositioned in RB-tree, new VFT=%llu\n",
+          //         p->pid, se->vft);
         }
     }
 }
@@ -318,7 +318,7 @@ static void task_tick_wfs(struct rq *rq, struct task_struct *p, int queued)
     struct sched_wfs_entity *se = &p->wfs;
     int cpu = cpu_of(rq);
 
-    //printk(KERN_DEBUG "WFS: TASK_TICK PID %d on CPU %d (queued=%d), VFT=%llu, %u tasks in queue\n",
+    // printk_ratelimited(KERN_DEBUG "WFS: TASK_TICK PID %d on CPU %d (queued=%d), VFT=%llu, %u tasks in queue\n",
     //       p->pid, cpu, queued, se->vft, wfs_rq->wfs_nr_running);
 
     /* Update runtime stats first */
@@ -397,7 +397,7 @@ void init_wfs_rq(struct wfs_rq *wfs_rq)
     wfs_rq->min_vruntime = 0;
     wfs_rq->cpu_total_weight = 0;
     wfs_rq->cpu_vtime = 0;
-    printk(KERN_INFO "WFS: Runqueue initialized\n");
+   // printk(KERN_INFO "WFS: Runqueue initialized\n");
 }
 
 /* Enhanced SMP hooks for wfs scheduler */
@@ -409,8 +409,8 @@ static int select_task_rq_wfs(struct task_struct *p, int cpu, int flags)
     /* Find CPU with minimum total weight */
     best_cpu = find_min_weight_cpu(p);
     
-    printk(KERN_DEBUG "WFS: select_task_rq for PID %d: chose CPU %d (was %d)\n",
-           p->pid, best_cpu, cpu);
+    //printk(KERN_DEBUG "WFS: select_task_rq for PID %d: chose CPU %d (was %d)\n",
+      //     p->pid, best_cpu, cpu);
     
     return best_cpu;
 }
@@ -437,15 +437,15 @@ static void migrate_task_rq_wfs(struct task_struct *p, int new_cpu)
         add_task_to_cpu_weight(&new_rq->wfs, se->weight);
         se->assigned_cpu = new_cpu;
         
-        printk(KERN_DEBUG "WFS: Task PID %d migrated from CPU %d to CPU %d, weight=%u\n",
-               p->pid, old_cpu, new_cpu, se->weight);
+        //printk(KERN_DEBUG "WFS: Task PID %d migrated from CPU %d to CPU %d, weight=%u\n",
+          //     p->pid, old_cpu, new_cpu, se->weight);
     }
 }
 
 static void rq_online_wfs(struct rq *rq)
 {
     int cpu = cpu_of(rq);
-    printk(KERN_INFO "WFS: CPU %d came online\n", cpu);
+    //printk(KERN_INFO "WFS: CPU %d came online\n", cpu);
 }
 
 static void rq_offline_wfs(struct rq *rq)
@@ -453,8 +453,8 @@ static void rq_offline_wfs(struct rq *rq)
     int cpu = cpu_of(rq);
     struct wfs_rq *wfs_rq = &rq->wfs;
     
-    printk(KERN_INFO "WFS: CPU %d going offline, had total weight %llu\n",
-           cpu, wfs_rq->cpu_total_weight);
+    //printk(KERN_INFO "WFS: CPU %d going offline, had total weight %llu\n",
+      //     cpu, wfs_rq->cpu_total_weight);
 }
 
 static void task_woken_wfs(struct rq *rq, struct task_struct *p)
@@ -465,7 +465,7 @@ static void task_woken_wfs(struct rq *rq, struct task_struct *p)
 static void set_cpus_allowed_wfs(struct task_struct *p, struct affinity_context *ctx)
 {
     /* Could implement logic to rebalance if affinity changes */
-    printk(KERN_DEBUG "WFS: CPU affinity changed for PID %d\n", p->pid);
+    //printk(KERN_DEBUG "WFS: CPU affinity changed for PID %d\n", p->pid);
 }
 
 static bool yield_to_task_wfs(struct rq *rq, struct task_struct *p)
@@ -491,6 +491,7 @@ static void prio_changed_wfs(struct rq *rq, struct task_struct *p, int oldprio)
     /* No-op - WFS doesn't use priority levels */
 }
 
+
 const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .enqueue_task = enqueue_task_wfs,
     .dequeue_task = dequeue_task_wfs,
@@ -512,7 +513,9 @@ const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
     .rq_online = rq_online_wfs,
     .rq_offline = rq_offline_wfs,
     .task_woken = task_woken_wfs,
-    .set_cpus_allowed = set_cpus_allowed_wfs,
+    .set_cpus_allowed = set_cpus_allowed_common,
 #endif
+};
+
 };
 /* 6118 */

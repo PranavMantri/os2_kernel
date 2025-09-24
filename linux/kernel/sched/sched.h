@@ -231,7 +231,7 @@ static bool valid_policy(int policy)
     
     if (policy == SCHED_WFS) {
         result = true;
-        printk(KERN_INFO "WFS_DEBUG: SCHED_WFS detected, returning TRUE\n");
+        // printk(KERN_INFO "WFS_DEBUG: SCHED_WFS detected, returning TRUE\n");
     } else {
         result = policy >= SCHED_NORMAL && policy <= SCHED_DEADLINE && policy != 7;
         // printk(KERN_INFO "WFS_DEBUG: Non-WFS policy, result=%d\n", result);
