@@ -48,6 +48,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     } else {
         // Parent waits for child
+	printf("Child PID: %d\n", pid);
         int status;
         if (waitpid(pid, &status, 0) == -1) {
             perror("waitpid");

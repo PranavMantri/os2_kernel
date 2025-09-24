@@ -231,7 +231,7 @@ static bool valid_policy(int policy)
     
     if (policy == SCHED_WFS) {
         result = true;
-        printk(KERN_INFO "WFS_DEBUG: SCHED_WFS detected, returning TRUE\n");
+        // printk(KERN_INFO "WFS_DEBUG: SCHED_WFS detected, returning TRUE\n");
     } else {
         result = policy >= SCHED_NORMAL && policy <= SCHED_DEADLINE && policy != 7;
         // printk(KERN_INFO "WFS_DEBUG: Non-WFS policy, result=%d\n", result);
@@ -919,10 +919,13 @@ struct dl_rq {
 /*6118*/
 
 struct wfs_rq {
-    struct list_head queue;
-    unsigned int wfs_nr_running;
+    struct rb_root_cached   tasks_timeline;  // Leftmost-cached RB-tree for O(1) min-VFT
+    struct list_head        queue;           // Keep for fallback or debugging
+    unsigned int            wfs_nr_running;
+    u64                     min_vruntime;    // Track minimum virtual runtime on this CPU
+    u64                     cpu_total_weight; // Total weight of all tasks on this CPU
+    u64                     cpu_vtime;       // Virtual time for this CPU
 };
-
 
 /*6118*/
 
