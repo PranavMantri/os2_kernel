@@ -517,5 +517,4 @@ const struct sched_class wfs_sched_class __section("__wfs_sched_class") = {
 #endif
 };
 
-};
 /* 6118 */
