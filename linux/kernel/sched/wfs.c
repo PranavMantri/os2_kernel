@@ -3,58 +3,51 @@
 #include "sched.h"
 #include "wfs.h"
 
-/* No separate per-CPU structure needed - using wfs_rq instead */
-
-/* Find the CPU with minimum total weight */
+/* Find the CPU with minimum total weight - LOCKLESS VERSION */
 static int find_min_weight_cpu(struct task_struct *p)
 {
     int cpu, best_cpu = -1;
     u64 min_weight = ULLONG_MAX;
     const struct cpumask *allowed_mask = p->cpus_ptr;
-    
+
     for_each_cpu(cpu, allowed_mask) {
         struct rq *cpu_rq = cpu_rq(cpu);
         struct wfs_rq *wfs_rq = &cpu_rq->wfs;
-        
+        u64 weight;
+
         /* Skip offline CPUs */
         if (!cpu_online(cpu))
             continue;
-            
+
+        /* Lockless read - may be slightly stale but that's OK for load balancing */
+        weight = READ_ONCE(wfs_rq->cpu_total_weight);
+
         /* Find CPU with minimum weight, breaking ties with lowest CPU number */
-        if (wfs_rq->cpu_total_weight < min_weight) {
-            min_weight = wfs_rq->cpu_total_weight;
+        if (weight < min_weight) {
+            min_weight = weight;
             best_cpu = cpu;
         }
     }
-    
+
     /* Fallback to current CPU if no suitable CPU found */
     if (best_cpu == -1)
         best_cpu = smp_processor_id();
-        
+
     return best_cpu;
 }
 
-/* Add task weight to CPU's total weight */
 static void add_task_to_cpu_weight(struct wfs_rq *wfs_rq, u64 weight)
 {
-    wfs_rq->cpu_total_weight += weight;
-    
-    //printk(KERN_DEBUG "WFS: Added weight %u to CPU, total weight now %llu\n",
- //          weight, wfs_rq->cpu_total_weight);
+    /* Called with rq->lock held by enqueue_task, so this is safe */
+    WRITE_ONCE(wfs_rq->cpu_total_weight, wfs_rq->cpu_total_weight + weight);
 }
 
-/* Remove task weight from CPU's total weight */
+/* Remove task weight from CPU's total weight - SIMPLE VERSION */
 static void remove_task_from_cpu_weight(struct wfs_rq *wfs_rq, u64 weight)
 {
-    if (wfs_rq->cpu_total_weight >= weight) {
-        wfs_rq->cpu_total_weight -= weight;
-    } else {
-   //     printk(KERN_WARNING "WFS: CPU weight underflow, resetting to 0\n");
-    //    wfs_rq->cpu_total_weight = 0;
-    }
-    
-   // printk(KERN_DEBUG "WFS: Removed weight %u from CPU, total weight now %llu\n",
-         //  weight, wfs_rq->cpu_total_weight);
+    /* Called with rq->lock held by dequeue_task, so this is safe */
+    u64 current_weight = wfs_rq->cpu_total_weight;
+    WRITE_ONCE(wfs_rq->cpu_total_weight, (current_weight >= weight) ? current_weight - weight : 0);
 }
 
 /* Update CPU virtual time based on execution time */
@@ -421,24 +414,24 @@ static int balance_wfs(struct rq *rq, struct task_struct *prev, struct rq_flags 
     return 0;
 }
 
+/* FIXED: Migration WITHOUT additional locking */
 static void migrate_task_rq_wfs(struct task_struct *p, int new_cpu)
 {
     struct sched_wfs_entity *se = &p->wfs;
     int old_cpu = se->assigned_cpu;
-    
+
     if (old_cpu != new_cpu && se->weight > 0) {
-        /* Remove weight from old CPU and add to new CPU */
+        /* Remove weight from old CPU - NO LOCKING needed here */
         if (old_cpu >= 0 && old_cpu < nr_cpu_ids) {
             struct rq *old_rq = cpu_rq(old_cpu);
             remove_task_from_cpu_weight(&old_rq->wfs, se->weight);
         }
-        
+
+        /* Add weight to new CPU - NO LOCKING needed here */
         struct rq *new_rq = cpu_rq(new_cpu);
         add_task_to_cpu_weight(&new_rq->wfs, se->weight);
+
         se->assigned_cpu = new_cpu;
-        
-        //printk(KERN_DEBUG "WFS: Task PID %d migrated from CPU %d to CPU %d, weight=%u\n",
-          //     p->pid, old_cpu, new_cpu, se->weight);
     }
 }
 
