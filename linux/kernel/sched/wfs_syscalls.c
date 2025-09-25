@@ -103,17 +103,20 @@ SYSCALL_DEFINE1(set_wfs_weight, int, weight)
     /* Get the runqueue and lock it */
     rq = task_rq_lock(p, &rf);
 
+    /* Update current task's virtual time using OLD weight before changing it */
+    update_curr_wfs(rq);
+
     /* If task is queued, update CPU weight accounting */
     if (task_on_rq_queued(p) && !RB_EMPTY_NODE(&se->run_node)) {
         struct wfs_rq *wfs_rq = &rq->wfs;
-        
+
         /* Remove old weight from CPU total */
         wfs_rq->cpu_total_weight -= se->weight;
-        
+
         /* Update the task's weight */
         se->weight = weight;
         se->inv_weight = WFS_SCALE_FACTOR / weight;
-        
+
         /* Add new weight to CPU total */
         wfs_rq->cpu_total_weight += se->weight;
     } else {
@@ -121,9 +124,9 @@ SYSCALL_DEFINE1(set_wfs_weight, int, weight)
         se->weight = weight;
         se->inv_weight = WFS_SCALE_FACTOR / weight;
     }
-    update_curr_wfs(rq);
 
     task_rq_unlock(rq, p, &rf);
 
     return 0;
 }
+
