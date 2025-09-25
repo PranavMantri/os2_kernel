@@ -275,7 +275,7 @@ static void set_next_task_wfs(struct rq *rq, struct task_struct *p, bool first)
     //       p->pid, first, wfs_rq->wfs_nr_running);
 }
 
-static void update_curr_wfs(struct rq *rq)
+void update_curr_wfs(struct rq *rq)
 {
     struct wfs_rq *wfs_rq = &rq->wfs;
     struct task_struct *curr = rq->curr;
@@ -365,12 +365,23 @@ static void switched_from_wfs(struct rq *rq, struct task_struct *p)
 
 static void check_preempt_curr_wfs(struct rq *rq, struct task_struct *p, int flags)
 {
-    /* For now, WFS is non-preemptive except for round-robin in task_tick */
-    /* Could add preemption logic here if needed */
-    //printk(KERN_DEBUG "WFS: check_preempt_curr called for PID %d (flags=%d)\n", 
-    //       p->pid, flags);
+    struct task_struct *curr = rq->curr;
+    struct wfs_rq *wfs_rq = &rq->wfs;
+    
+    /* Only preempt if both current and candidate task are WFS */
+    if (curr->sched_class != &wfs_sched_class || p->sched_class != &wfs_sched_class)
+        return;
+    
+    /* 
+     * WFS preemption logic: preempt if the candidate task has better VFT
+     * (lower VFT = higher priority in WFS)
+     */
+    if (p->wfs.vft < curr->wfs.vft) {
+        //printk(KERN_DEBUG "WFS: Preempting PID %d (VFT=%llu) with PID %d (VFT=%llu)\n",
+        //       curr->pid, curr->wfs.vft, p->pid, p->wfs.vft);
+        resched_curr(rq);
+    }
 }
-
 static void wakeup_preempt_wfs(struct rq *rq, struct task_struct *p, int flags)
 {
     /* 
@@ -414,25 +425,21 @@ static int balance_wfs(struct rq *rq, struct task_struct *prev, struct rq_flags 
     return 0;
 }
 
-/* FIXED: Migration WITHOUT additional locking */
 static void migrate_task_rq_wfs(struct task_struct *p, int new_cpu)
 {
     struct sched_wfs_entity *se = &p->wfs;
     int old_cpu = se->assigned_cpu;
-
-    if (old_cpu != new_cpu && se->weight > 0) {
-        /* Remove weight from old CPU - NO LOCKING needed here */
-        if (old_cpu >= 0 && old_cpu < nr_cpu_ids) {
-            struct rq *old_rq = cpu_rq(old_cpu);
-            remove_task_from_cpu_weight(&old_rq->wfs, se->weight);
-        }
-
-        /* Add weight to new CPU - NO LOCKING needed here */
-        struct rq *new_rq = cpu_rq(new_cpu);
-        add_task_to_cpu_weight(&new_rq->wfs, se->weight);
-
-        se->assigned_cpu = new_cpu;
-    }
+    
+    /* Only update the assigned CPU tracking - don't manipulate weights here */
+    se->assigned_cpu = new_cpu;
+    
+    /* 
+     * DON'T manipulate weights here - the normal enqueue/dequeue cycle
+     * will handle weight accounting properly:
+     * 1. dequeue_task_wfs() removes weight from old CPU
+     * 2. enqueue_task_wfs() adds weight to new CPU
+     */
+    
 }
 
 static void rq_online_wfs(struct rq *rq)
