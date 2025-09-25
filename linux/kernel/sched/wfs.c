@@ -282,7 +282,7 @@ static void set_next_task_wfs(struct rq *rq, struct task_struct *p, bool first)
     //       p->pid, first, wfs_rq->wfs_nr_running);
 }
 
-static void update_curr_wfs(struct rq *rq)
+void update_curr_wfs(struct rq *rq)
 {
     struct wfs_rq *wfs_rq = &rq->wfs;
     struct task_struct *curr = rq->curr;
@@ -372,12 +372,23 @@ static void switched_from_wfs(struct rq *rq, struct task_struct *p)
 
 static void check_preempt_curr_wfs(struct rq *rq, struct task_struct *p, int flags)
 {
-    /* For now, WFS is non-preemptive except for round-robin in task_tick */
-    /* Could add preemption logic here if needed */
-    //printk(KERN_DEBUG "WFS: check_preempt_curr called for PID %d (flags=%d)\n", 
-    //       p->pid, flags);
+    struct task_struct *curr = rq->curr;
+    struct wfs_rq *wfs_rq = &rq->wfs;
+    
+    /* Only preempt if both current and candidate task are WFS */
+    if (curr->sched_class != &wfs_sched_class || p->sched_class != &wfs_sched_class)
+        return;
+    
+    /* 
+     * WFS preemption logic: preempt if the candidate task has better VFT
+     * (lower VFT = higher priority in WFS)
+     */
+    if (p->wfs.vft < curr->wfs.vft) {
+        //printk(KERN_DEBUG "WFS: Preempting PID %d (VFT=%llu) with PID %d (VFT=%llu)\n",
+        //       curr->pid, curr->wfs.vft, p->pid, p->wfs.vft);
+        resched_curr(rq);
+    }
 }
-
 static void wakeup_preempt_wfs(struct rq *rq, struct task_struct *p, int flags)
 {
     /* 

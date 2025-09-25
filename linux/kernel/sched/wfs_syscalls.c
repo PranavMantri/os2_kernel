@@ -11,7 +11,7 @@
 #include <linux/mmu_context.h>  /* Add this for task_cpu_possible */
 #include <linux/cpumask.h>
 #include "sched.h"  /* Include scheduler internals */
-
+#include "wfs.h"
 #define MAX_CPUS 8
 
 struct wfs_info {
@@ -83,16 +83,47 @@ SYSCALL_DEFINE1(get_wfs_info, struct wfs_info __user *, wfs_info)
  */
 SYSCALL_DEFINE1(set_wfs_weight, int, weight)
 {
+    struct task_struct *p = current;
+    struct sched_wfs_entity *se = &p->wfs;
+    struct rq *rq;
+    struct rq_flags rf;
+
     /* Validate weight range */
     if (weight < 1)
         return -EINVAL;
-    
-    /* Check if trying to set weight above default (10) without root */
-    if (weight > 10 && !capable(CAP_SYS_NICE))
+
+    /* Check permissions - only root can increase weight beyond default */
+    if (weight > WFS_DEFAULT_WEIGHT && !capable(CAP_SYS_NICE))
         return -EPERM;
-    
-    /* For now, just return success */
-    /* TODO: Integrate with WFS scheduler to actually set the weight */
-    
+
+    /* Only allow for WFS tasks */
+    if (p->policy != SCHED_WFS)
+        return -EINVAL;
+
+    /* Get the runqueue and lock it */
+    rq = task_rq_lock(p, &rf);
+
+    /* If task is queued, update CPU weight accounting */
+    if (task_on_rq_queued(p) && !RB_EMPTY_NODE(&se->run_node)) {
+        struct wfs_rq *wfs_rq = &rq->wfs;
+        
+        /* Remove old weight from CPU total */
+        wfs_rq->cpu_total_weight -= se->weight;
+        
+        /* Update the task's weight */
+        se->weight = weight;
+        se->inv_weight = WFS_SCALE_FACTOR / weight;
+        
+        /* Add new weight to CPU total */
+        wfs_rq->cpu_total_weight += se->weight;
+    } else {
+        /* Task not queued, just update weight */
+        se->weight = weight;
+        se->inv_weight = WFS_SCALE_FACTOR / weight;
+    }
+    update_curr_wfs(rq);
+
+    task_rq_unlock(rq, p, &rf);
+
     return 0;
 }

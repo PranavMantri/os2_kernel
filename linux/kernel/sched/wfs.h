@@ -31,7 +31,7 @@ static inline u64 calc_delta_fair(u64 delta, struct sched_wfs_entity *se)
 {
     return (delta * WFS_SCALE_FACTOR) / se->weight;
 }
-
+extern void update_curr_wfs(struct rq *rq);
 extern void init_wfs_rq(struct wfs_rq *wfs_rq);
 
 #endif /* _KERNEL_SCHED_WFS_H */
