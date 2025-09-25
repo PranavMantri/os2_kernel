@@ -50,7 +50,7 @@ static void remove_task_from_cpu_weight(struct wfs_rq *wfs_rq, u64 weight)
         wfs_rq->cpu_total_weight -= weight;
     } else {
    //     printk(KERN_WARNING "WFS: CPU weight underflow, resetting to 0\n");
-    //    wfs_rq->cpu_total_weight = 0;
+        wfs_rq->cpu_total_weight = 0;
     }
     
    // printk(KERN_DEBUG "WFS: Removed weight %u from CPU, total weight now %llu\n",
@@ -421,26 +421,48 @@ static int balance_wfs(struct rq *rq, struct task_struct *prev, struct rq_flags 
     return 0;
 }
 
+
+
+
 static void migrate_task_rq_wfs(struct task_struct *p, int new_cpu)
 {
     struct sched_wfs_entity *se = &p->wfs;
     int old_cpu = se->assigned_cpu;
     
-    if (old_cpu != new_cpu && se->weight > 0) {
-        /* Remove weight from old CPU and add to new CPU */
-        if (old_cpu >= 0 && old_cpu < nr_cpu_ids) {
-            struct rq *old_rq = cpu_rq(old_cpu);
-            remove_task_from_cpu_weight(&old_rq->wfs, se->weight);
-        }
-        
-        struct rq *new_rq = cpu_rq(new_cpu);
-        add_task_to_cpu_weight(&new_rq->wfs, se->weight);
-        se->assigned_cpu = new_cpu;
-        
-        //printk(KERN_DEBUG "WFS: Task PID %d migrated from CPU %d to CPU %d, weight=%u\n",
-          //     p->pid, old_cpu, new_cpu, se->weight);
-    }
+    /* Only update the assigned CPU tracking - don't manipulate weights here */
+    se->assigned_cpu = new_cpu;
+    
+    /* 
+     * DON'T manipulate weights here - the normal enqueue/dequeue cycle
+     * will handle weight accounting properly:
+     * 1. dequeue_task_wfs() removes weight from old CPU
+     * 2. enqueue_task_wfs() adds weight to new CPU
+     */
+    
+ //   printk(KERN_DEBUG "WFS: Task PID %d migrated from CPU %d to CPU %d, weight=%u\n",
+ //          p->pid, old_cpu, new_cpu, se->weight);
 }
+
+//static void migrate_task_rq_wfs(struct task_struct *p, int new_cpu)
+//{
+//    struct sched_wfs_entity *se = &p->wfs;
+//    int old_cpu = se->assigned_cpu;
+//    
+//    if (old_cpu != new_cpu && se->weight > 0) {
+//        /* Remove weight from old CPU and add to new CPU / ADD STAR HERE /
+//        if (old_cpu >= 0 && old_cpu < nr_cpu_ids) {
+//            struct rq *old_rq = cpu_rq(old_cpu);
+//            remove_task_from_cpu_weight(&old_rq->wfs, se->weight);
+//        }
+//        
+//        struct rq *new_rq = cpu_rq(new_cpu);
+//        add_task_to_cpu_weight(&new_rq->wfs, se->weight);
+//        se->assigned_cpu = new_cpu;
+//        
+//        //printk(KERN_DEBUG "WFS: Task PID %d migrated from CPU %d to CPU %d, weight=%u\n",
+//          //     p->pid, old_cpu, new_cpu, se->weight);
+//    }
+//}
 
 static void rq_online_wfs(struct rq *rq)
 {

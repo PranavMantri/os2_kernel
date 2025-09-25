@@ -1,5 +1,5 @@
 /*
- * WFS Scheduler System Calls
+ * WFS System Calls Implementation
  * File: kernel/sched/wfs_syscalls.c
  */
 
@@ -8,9 +8,17 @@
 #include <linux/uaccess.h>
 #include <linux/capability.h>
 #include <linux/errno.h>
-#include <uapi/linux/wfs.h>
+#include <linux/mmu_context.h>  /* Add this for task_cpu_possible */
+#include <linux/cpumask.h>
+#include "sched.h"  /* Include scheduler internals */
+
 #define MAX_CPUS 8
 
+struct wfs_info {
+    int num_cpus;
+    int nr_running[MAX_CPUS];
+    int total_weight[MAX_CPUS];
+};
 
 /*
  * get_wfs_info - Get WFS scheduler information
@@ -21,7 +29,10 @@
 SYSCALL_DEFINE1(get_wfs_info, struct wfs_info __user *, wfs_info)
 {
     struct wfs_info info;
+    struct rq *rq;
     int cpu;
+    int online_cpus;
+    struct rq_flags rf;  /* Use struct rq_flags instead of unsigned long */
     
     if (!wfs_info)
         return -EINVAL;
@@ -29,15 +40,32 @@ SYSCALL_DEFINE1(get_wfs_info, struct wfs_info __user *, wfs_info)
     /* Initialize the structure */
     memset(&info, 0, sizeof(info));
     
-    /* For now, return dummy data */
-    info.num_cpus = num_online_cpus();
-    if (info.num_cpus > MAX_CPUS)
-        info.num_cpus = MAX_CPUS;
+    /* Get number of online CPUs */
+    online_cpus = num_online_cpus();
+    info.num_cpus = (online_cpus > MAX_CPUS) ? MAX_CPUS : online_cpus;
     
-    /* Fill dummy data for each CPU */
-    for (cpu = 0; cpu < info.num_cpus; cpu++) {
-        info.nr_running[cpu] = 0;    /* No WFS processes running (dummy) */
-        info.total_weight[cpu] = 0;  /* No total weight (dummy) */
+    /* Collect data from each CPU's WFS runqueue with proper locking */
+    for_each_online_cpu(cpu) {
+        if (cpu >= MAX_CPUS)
+            break;
+            
+        /* Get the runqueue for this CPU */
+        rq = cpu_rq(cpu);
+        
+        /* Lock the runqueue - using struct rq_flags */
+        rq_lock_irqsave(rq, &rf);
+        
+        /* Read WFS data while holding the lock */
+        info.nr_running[cpu] = rq->wfs.wfs_nr_running;
+        
+        /* Safe conversion of u64 to int */
+        if (rq->wfs.cpu_total_weight > INT_MAX)
+            info.total_weight[cpu] = INT_MAX;
+        else
+            info.total_weight[cpu] = (int)rq->wfs.cpu_total_weight;
+        
+        /* Release the lock */
+        rq_unlock_irqrestore(rq, &rf);
     }
     
     /* Copy to user space */
@@ -63,9 +91,8 @@ SYSCALL_DEFINE1(set_wfs_weight, int, weight)
     if (weight > 10 && !capable(CAP_SYS_NICE))
         return -EPERM;
     
-    /* For now, just return success without actually setting anything */
-    /* In the future, this would modify the current task's WFS weight */
+    /* For now, just return success */
+    /* TODO: Integrate with WFS scheduler to actually set the weight */
     
     return 0;
 }
-
