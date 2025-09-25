@@ -581,66 +581,7 @@ static int select_task_rq_wfs(struct task_struct *p, int cpu, int flags)
 /* Idle load balancing - pull tasks from heaviest CPU to idle CPU */
 
 static int balance_wfs(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
-{
-    int this_cpu = cpu_of(rq);
-    int max_cpu;
-    struct rq *this_rq, *max_rq;
-    struct task_struct *task_to_migrate;
-    u64 max_weight, this_weight;
-
-    /* If we have WFS tasks, no need to balance */
-    if (rq->wfs.wfs_nr_running)
-        return 0;
-
-    this_rq = rq;  /* rq is already this_rq */
-    this_weight = this_rq->wfs.cpu_total_weight;
-
-    /* Find CPU with maximum weight */
-    max_cpu = find_max_weight_cpu();
-    
-    if (max_cpu == -1 || max_cpu == this_cpu)
-        return 0;
-
-    max_rq = cpu_rq(max_cpu);
-
-    /* Only pull if the max CPU has significantly more work than us */
-    max_weight = READ_ONCE(max_rq->wfs.cpu_total_weight);
-    if (max_weight <= this_weight)
-        return 0;
-
-    /* Always drop our lock and use double_rq_lock for consistent locking */
-    raw_spin_unlock(&this_rq->__lock);
-    double_rq_lock(max_rq, this_rq);
-
-    /* Re-read weights under lock */
-    max_weight = max_rq->wfs.cpu_total_weight;
-    this_weight = this_rq->wfs.cpu_total_weight;
-
-    /* Find eligible task to migrate from max_cpu to this_cpu */
-    if (max_weight > this_weight) {
-        task_to_migrate = find_eligible_task_to_migrate(max_rq, this_cpu, max_weight, this_weight);
-
-        if (task_to_migrate && task_to_migrate->sched_class == &wfs_sched_class) {
-            deactivate_task(max_rq, task_to_migrate, DEQUEUE_NOCLOCK);
-            set_task_cpu(task_to_migrate, this_cpu);
-            activate_task(this_rq, task_to_migrate, ENQUEUE_NOCLOCK);
-	    
-            
-	    /* Always unlock both and re-acquire our lock */
-            double_rq_unlock(max_rq, this_rq);
-            raw_spin_lock(&this_rq->__lock);
-            
-            return 1; /* Successfully pulled a task */
-        }
-    }
-
-    /* Always unlock both and re-acquire our lock */
-    double_rq_unlock(max_rq, this_rq);
-    raw_spin_lock(&this_rq->__lock);
-    
-    return 0; /* No task pulled */
-}
-
+{ return 0;} 
 static void migrate_task_rq_wfs(struct task_struct *p, int new_cpu)
 {
     struct sched_wfs_entity *se = &p->wfs;
