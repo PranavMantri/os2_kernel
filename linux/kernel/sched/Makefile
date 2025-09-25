@@ -32,6 +32,7 @@ obj-y += core.o
 obj-y += fair.o
 #6118
 obj-y += wfs.o
+obj-y += wfs_syscalls.o
 #6118
 obj-y += build_policy.o
 obj-y += build_utility.o
