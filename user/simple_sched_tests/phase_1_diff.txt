@@ -71,9 +71,9 @@ index 6ab43b4f7..a8593da48 100644
  #define DEFAULT_PRIO		(MAX_RT_PRIO + NICE_WIDTH / 2)
  
 +/* 6118 */
-+#define MAX_WFS_PRIO		139
-+#define MIN_WFS_PRIO		100
-+#define WFS_PRIO_WIDTH		(MAX_WFS_PRIO - MIN_WFS_PRIO + 1)
++#define MAX_WFQ_PRIO		139
++#define MIN_WFQ_PRIO		100
++#define WFQ_PRIO_WIDTH		(MAX_WFQ_PRIO - MIN_WFQ_PRIO + 1)
 +/* 6118 */
 +
  /*
@@ -88,7 +88,7 @@ index 359a14cc7..77e5367dc 100644
  #define SCHED_DEADLINE		6
  #define SCHED_EXT		7
 -
-+#define SCHED_WFS		8
++#define SCHED_WFQ		8
  /* Can be ORed in to make sure the process is reverted back to SCHED_NORMAL on fork */
  #define SCHED_RESET_ON_FORK     0x40000000
  
@@ -115,7 +115,7 @@ index 042351c7a..a0a61d2ca 100644
  
 +	/* 6118 */
 +	if (p->sched_class == &wfs_sched_class)
-+		 return MAX_WFS_PRIO;
++		 return MAX_WFQ_PRIO;
 +	/* 6118 */
  	if (p->sched_class == &idle_sched_class)
  		return MAX_RT_PRIO + NICE_WIDTH; /* 140 */
@@ -140,7 +140,7 @@ index 042351c7a..a0a61d2ca 100644
  		return &rt_sched_class;
  
 +	/* 6118 */
-+	if (policy == SCHED_WFS)
++	if (policy == SCHED_WFQ)
 +		return &wfs_sched_class;
 +	/* 6118 */
  #ifdef CONFIG_SCHED_CLASS_EXT
@@ -224,7 +224,7 @@ index 456d339be..bcd5c07eb 100644
  		return -EINVAL;
 -
 +	/* 6118 */
-+	if (policy == SCHED_WFS && attr->sched_priority != 0)
++	if (policy == SCHED_WFQ && attr->sched_priority != 0)
 +		return -EINVAL;
 +	/* 6118 */
  	if (user) {
@@ -248,7 +248,7 @@ index 000000000..e5f75ecb9
 +    wfs_rq->wfs_nr_running++;
 +    p->wfs.exec_start = rq_clock_task(rq);
 +    
-+    printk_once(KERN_INFO "WFS: First task enqueued\n");
++    printk_once(KERN_INFO "WFQ: First task enqueued\n");
 +}
 +
 +static void dequeue_task_wfs(struct rq *rq, struct task_struct *p, int flags)
@@ -291,7 +291,7 @@ index 000000000..e5f75ecb9
 +
 +static void switched_to_wfs(struct rq *rq, struct task_struct *p)
 +{
-+    printk_ratelimited(KERN_INFO "WFS: Task %d switched to WFS class\n", p->pid);
++    printk_ratelimited(KERN_INFO "WFQ: Task %d switched to WFQ class\n", p->pid);
 +}
 +
 +void init_wfs_rq(struct wfs_rq *wfs_rq)
@@ -317,8 +317,8 @@ index 000000000..0e301590e
 +++ b/linux/kernel/sched/wfs.h
 @@ -0,0 +1,20 @@
 +/* 6118 */
-+#ifndef _KERNEL_SCHED_WFS_H
-+#define _KERNEL_SCHED_WFS_H
++#ifndef _KERNEL_SCHED_WFQ_H
++#define _KERNEL_SCHED_WFQ_H
 +
 +#include "sched.h"
 +
@@ -334,5 +334,5 @@ index 000000000..0e301590e
 +
 +extern void init_wfs_rq(struct wfs_rq *wfs_rq);
 +
-+#endif /* _KERNEL_SCHED_WFS_H */
++#endif /* _KERNEL_SCHED_WFQ_H */
 +/* 6118 */

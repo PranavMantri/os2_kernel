@@ -170,8 +170,8 @@ static inline int __task_prio(const struct task_struct *p)
 		return p->prio; /* [-1, 99] */
 
 	/* 6118 */
-	if (p->sched_class == &wfs_sched_class)
-		 return MAX_WFS_PRIO;
+	if (p->sched_class == &wfq_sched_class)
+		 return MAX_WFQ_PRIO;
 	/* 6118 */
 	if (p->sched_class == &idle_sched_class)
 		return MAX_RT_PRIO + NICE_WIDTH; /* 140 */
@@ -4514,16 +4514,16 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->rt.on_list		= 0;
 	
 	/* 6118 */
-	// INIT_LIST_HEAD(&p->wfs.run_list);
-        RB_CLEAR_NODE(&p->wfs.run_node);           /* Initialize rb_node as empty */
-        p->wfs.time_slice = 0;
-        p->wfs.exec_start = 0;
-        p->wfs.sum_exec_runtime = 0;
-        p->wfs.prev_sum_exec_runtime = 0;
-        p->wfs.vruntime = 0;                       /* Initialize virtual time */
-        p->wfs.vft = 0;                           /* Initialize virtual finishing time */
-        p->wfs.weight = 0;                        /* Will be set to default in place_entity */
-        p->wfs.inv_weight = 0;
+	// INIT_LIST_HEAD(&p->wfq.run_list);
+        RB_CLEAR_NODE(&p->wfq.run_node);           /* Initialize rb_node as empty */
+        p->wfq.time_slice = 0;
+        p->wfq.exec_start = 0;
+        p->wfq.sum_exec_runtime = 0;
+        p->wfq.prev_sum_exec_runtime = 0;
+        p->wfq.vruntime = 0;                       /* Initialize virtual time */
+        p->wfq.vft = 0;                           /* Initialize virtual finishing time */
+        p->wfq.weight = 0;                        /* Will be set to default in place_entity */
+        p->wfq.inv_weight = 0;
 	/* 6118 */
 
 #ifdef CONFIG_SCHED_CLASS_EXT
@@ -4752,7 +4752,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	 */
 	if (unlikely(p->sched_reset_on_fork)) {
 		if (task_has_dl_policy(p) || task_has_rt_policy(p)) {
-			p->policy = SCHED_WFS;
+			p->policy = SCHED_WFQ;
 			p->static_prio = NICE_TO_PRIO(0);
 			p->rt_priority = 0;
 		} else if (PRIO_TO_NICE(p->static_prio) < 0)
@@ -4782,9 +4782,9 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	    p->sched_class = &ext_sched_class;
 #endif
 	/* 6118 */
-	} else if (current->sched_class == &wfs_sched_class || p->policy == SCHED_WFS) {
-	    p->sched_class = &wfs_sched_class;
-	    p->policy = SCHED_WFS;
+	} else if (current->sched_class == &wfq_sched_class || p->policy == SCHED_WFQ) {
+	    p->sched_class = &wfq_sched_class;
+	    p->policy = SCHED_WFQ;
 	} else {
 	    p->sched_class = &fair_sched_class;  // SCHED_NORMAL, SCHED_BATCH, etc.
 	}/*6118*/ 
@@ -7129,8 +7129,8 @@ const struct sched_class *__setscheduler_class(int policy, int prio)
 		return &rt_sched_class;
 
 	/* 6118 */
-	if (policy == SCHED_WFS)
-		return &wfs_sched_class;
+	if (policy == SCHED_WFQ)
+		return &wfq_sched_class;
 	/* 6118 */
 #ifdef CONFIG_SCHED_CLASS_EXT
 	if (task_should_scx(policy))
@@ -8509,8 +8509,8 @@ void __init sched_init(void)
 	BUG_ON(!sched_class_above(&dl_sched_class, &rt_sched_class));
 	//BUG_ON(!sched_class_above(&rt_sched_class, &fair_sched_class));
 	/*6118*/
-	BUG_ON(!sched_class_above(&rt_sched_class, &wfs_sched_class));
-	BUG_ON(!sched_class_above(&wfs_sched_class, &fair_sched_class));
+	BUG_ON(!sched_class_above(&rt_sched_class, &wfq_sched_class));
+	BUG_ON(!sched_class_above(&wfq_sched_class, &fair_sched_class));
 	/*6118*/
 	BUG_ON(!sched_class_above(&fair_sched_class, &idle_sched_class));
 #ifdef CONFIG_SCHED_CLASS_EXT
@@ -8583,7 +8583,7 @@ void __init sched_init(void)
 		init_dl_rq(&rq->dl);
 		
 		/* 6118 */
-		init_wfs_rq(&rq->wfs);
+		init_wfq_rq(&rq->wfq);
 		/* 6118 */
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -8870,7 +8870,7 @@ void normalize_rt_tasks(void)
 	struct task_struct *g, *p;
 	/*6118*/
 	struct sched_attr attr = {
-		.sched_policy = SCHED_WFS,
+		.sched_policy = SCHED_WFQ,
 	};
 	/*6118*/
 	read_lock(&tasklist_lock);

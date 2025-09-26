@@ -4004,7 +4004,7 @@ static int scx_ops_init_task(struct task_struct *p, struct task_group *tg, bool 
 			 */
 			if (p->policy == SCHED_EXT) {
 				/*6118*/
-				p->policy = SCHED_WFS;
+				p->policy = SCHED_WFQ;
 				/*6118*/
 				
 				//p->policy = SCHED_NORMAL;

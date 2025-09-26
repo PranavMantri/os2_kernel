@@ -439,7 +439,7 @@ static int kthread(void *_create)
 	 * back to default in case they have been changed.
 	 */
 	/*6118*/
-	sched_setscheduler_nocheck(current, SCHED_WFS, &param);
+	sched_setscheduler_nocheck(current, SCHED_WFQ, &param);
 	/*6118*/
 	/* OK, tell user we're spawned, wait for stop or wakeup */
 	__set_current_state(TASK_UNINTERRUPTIBLE);

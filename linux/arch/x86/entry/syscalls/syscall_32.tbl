@@ -472,5 +472,5 @@
 464	i386	getxattrat		sys_getxattrat
 465	i386	listxattrat		sys_listxattrat
 466	i386	removexattrat		sys_removexattrat
-467	i386	get_wfs_info		sys_get_wfs_info
-468	i386	set_wfs_weight		sys_set_wfs_weight
+467	i386	get_wfq_info		sys_get_wfq_info
+468	i386	set_wfq_weight		sys_set_wfq_weight

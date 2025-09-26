@@ -6,13 +6,13 @@
 #include <errno.h>
 #include <sys/syscall.h>
 
-#define SCHED_WFS 8
+#define SCHED_WFQ 8
 
 int main() {
     struct sched_param param;
     int current_policy;
     
-    printf("Simple WFS Scheduler Test\n");
+    printf("Simple WFQ Scheduler Test\n");
     printf("=========================\n");
     
     // Show current scheduler
@@ -22,35 +22,35 @@ int main() {
     // Test 1: Try glibc wrapper first
     printf("\nTest 1: Using glibc sched_setscheduler()...\n");
     param.sched_priority = 0;
-    int result = sched_setscheduler(0, SCHED_WFS, &param);
+    int result = sched_setscheduler(0, SCHED_WFQ, &param);
     
     if (result == 0) {
-        printf("SUCCESS: glibc accepted SCHED_WFS\n");
+        printf("SUCCESS: glibc accepted SCHED_WFQ\n");
     } else {
-        printf("FAILED: glibc rejected SCHED_WFS\n");
+        printf("FAILED: glibc rejected SCHED_WFQ\n");
         printf("Error: %s (errno=%d)\n", strerror(errno), errno);
     }
     
     // Test 2: Direct syscall bypass
     printf("\nTest 2: Direct syscall (bypassing glibc)...\n");
     param.sched_priority = 0;
-    result = syscall(SYS_sched_setscheduler, 0, SCHED_WFS, &param);
+    result = syscall(SYS_sched_setscheduler, 0, SCHED_WFQ, &param);
     
     if (result == 0) {
-        printf("SUCCESS: Kernel accepted SCHED_WFS via direct syscall!\n");
+        printf("SUCCESS: Kernel accepted SCHED_WFQ via direct syscall!\n");
         
         // Verify it was actually set
         current_policy = sched_getscheduler(0);
         printf("New scheduler policy: %d\n", current_policy);
         
-        if (current_policy == SCHED_WFS) {
-            printf("VERIFIED: Process is now using WFS scheduler\n");
+        if (current_policy == SCHED_WFQ) {
+            printf("VERIFIED: Process is now using WFQ scheduler\n");
         } else {
-            printf("ERROR: Policy shows %d instead of %d\n", current_policy, SCHED_WFS);
+            printf("ERROR: Policy shows %d instead of %d\n", current_policy, SCHED_WFQ);
         }
         
     } else {
-        printf("FAILED: Kernel rejected SCHED_WFS\n");
+        printf("FAILED: Kernel rejected SCHED_WFQ\n");
         printf("Error: %s (errno=%d)\n", strerror(errno), errno);
     }
     

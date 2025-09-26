@@ -722,7 +722,7 @@ struct sched_dl_entity {
 
 /* 6118*/
 
-struct sched_wfs_entity {
+struct sched_wfq_entity {
     struct rb_node          run_node;        // Node in the RB-tree
     // struct list_head        run_list;        // Keep for compatibility
     // Timing fields
@@ -875,7 +875,7 @@ struct task_struct {
 	struct sched_dl_entity		dl;
 	struct sched_dl_entity		*dl_server;
 	/*6118*/
-	struct sched_wfs_entity		wfs;
+	struct sched_wfq_entity		wfq;
 	/*6118*/
 #ifdef CONFIG_SCHED_CLASS_EXT
 	struct sched_ext_entity		scx;

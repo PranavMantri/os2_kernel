@@ -218,16 +218,16 @@ static inline int dl_policy(int policy)
 }
 
 /*6118*/
-static inline int wfs_policy(int policy)
+static inline int wfq_policy(int policy)
 {
-        return policy == SCHED_WFS;
+        return policy == SCHED_WFQ;
 }
 static inline bool valid_policy(int policy)
 {
     bool result;
     
     
-    if (policy == SCHED_WFS) {
+    if (policy == SCHED_WFQ) {
         result = true;
     } else {
         result = policy >= SCHED_NORMAL && policy <= SCHED_DEADLINE && policy != 7;
@@ -915,10 +915,10 @@ struct dl_rq {
 
 /*6118*/
 
-struct wfs_rq {
+struct wfq_rq {
     struct rb_root_cached   tasks_timeline;  // Leftmost-cached RB-tree for O(1) min-VFT
     struct list_head        queue;           // Keep for fallback or debugging
-    unsigned int            wfs_nr_running;
+    unsigned int            wfq_nr_running;
     u64                     min_vruntime;    // Track minimum virtual runtime on this CPU
     u64                     cpu_total_weight; // Total weight of all tasks on this CPU
     u64                     cpu_vtime;       // Virtual time for this CPU
@@ -1168,7 +1168,7 @@ struct rq {
 	struct rt_rq		rt;
 	struct dl_rq		dl;
 	/*6118*/
-	struct wfs_rq		wfs;
+	struct wfq_rq		wfq;
 	/*6118*/
 #ifdef CONFIG_SCHED_CLASS_EXT
 	struct scx_rq		scx;
@@ -2579,8 +2579,8 @@ extern const struct sched_class rt_sched_class;
 extern const struct sched_class fair_sched_class;
 
 /*6118*/
-extern const struct sched_class wfs_sched_class;
-extern void init_wfs_rq(struct wfs_rq *wfs_rq);
+extern const struct sched_class wfq_sched_class;
+extern void init_wfq_rq(struct wfq_rq *wfq_rq);
 /*6118*/
 
 extern const struct sched_class idle_sched_class;

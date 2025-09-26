@@ -8,7 +8,7 @@
 #include <sys/wait.h>
 #include <time.h>
 
-#define SCHED_WFS 8
+#define SCHED_WFQ 8
 
 // Define missing scheduler constants if not available
 #ifndef SCHED_BATCH
@@ -30,7 +30,7 @@ const char* get_sched_policy_name(int policy) {
         case SCHED_BATCH: return "SCHED_BATCH";
         case SCHED_IDLE: return "SCHED_IDLE";
         case SCHED_DEADLINE: return "SCHED_DEADLINE";
-        case SCHED_WFS: return "SCHED_WFS";
+        case SCHED_WFQ: return "SCHED_WFQ";
         default: return "UNKNOWN";
     }
 }
@@ -72,29 +72,29 @@ void cpu_intensive_work(const char* task_name, int seconds) {
     printf("[%s] Completed! Final counter: %lu\n", task_name, counter);
 }
 
-int test_wfs_scheduler() {
+int test_wfq_scheduler() {
     struct sched_param param;
     int ret;
     
-    printf("=== Testing WFS Scheduler ===\n");
+    printf("=== Testing WFQ Scheduler ===\n");
     
-    // Test 1: Set current process to WFS
-    printf("\n1. Setting current process to WFS scheduler\n");
-    param.sched_priority = 0;  // WFS should only accept priority 0
+    // Test 1: Set current process to WFQ
+    printf("\n1. Setting current process to WFQ scheduler\n");
+    param.sched_priority = 0;  // WFQ should only accept priority 0
     
-    ret = sched_setscheduler(0, SCHED_WFS, &param);
+    ret = sched_setscheduler(0, SCHED_WFQ, &param);
     if (ret == 0) {
-        printf("✓ Successfully set WFS scheduler\n");
+        printf("✓ Successfully set WFQ scheduler\n");
         print_current_scheduler();
     } else {
-        printf("✗ Failed to set WFS scheduler: %s\n", strerror(errno));
+        printf("✗ Failed to set WFQ scheduler: %s\n", strerror(errno));
         return 1;
     }
     
     // Test 2: Try invalid priority (should fail)
     printf("\n2. Testing invalid priority (should fail)\n");
     param.sched_priority = 1;
-    ret = sched_setscheduler(0, SCHED_WFS, &param);
+    ret = sched_setscheduler(0, SCHED_WFQ, &param);
     if (ret != 0) {
         printf("✓ Correctly rejected invalid priority: %s\n", strerror(errno));
     } else {
@@ -103,7 +103,7 @@ int test_wfs_scheduler() {
     
     // Reset to valid priority
     param.sched_priority = 0;
-    sched_setscheduler(0, SCHED_WFS, &param);
+    sched_setscheduler(0, SCHED_WFQ, &param);
     
     return 0;
 }
@@ -114,13 +114,13 @@ int test_round_robin_behavior() {
     int status;
     
     printf("\n=== Testing Round-Robin Behavior ===\n");
-    printf("Creating 3 WFS tasks to test round-robin scheduling\n");
+    printf("Creating 3 WFQ tasks to test round-robin scheduling\n");
     
     param.sched_priority = 0;
     
-    // Set to WFS scheduler
-    if (sched_setscheduler(0, SCHED_WFS, &param) != 0) {
-	printf("Parent failed to set WFS scheduler: %s\n", strerror(errno));
+    // Set to WFQ scheduler
+    if (sched_setscheduler(0, SCHED_WFQ, &param) != 0) {
+	printf("Parent failed to set WFQ scheduler: %s\n", strerror(errno));
 	exit(1);
     }
             
@@ -131,7 +131,7 @@ int test_round_robin_behavior() {
         if (pids[i] == 0) {
             // Child process
             char task_name[32];
-            snprintf(task_name, sizeof(task_name), "WFS-Task-%d", i+1);
+            snprintf(task_name, sizeof(task_name), "WFQ-Task-%d", i+1);
             
             // Run CPU-intensive work
             cpu_intensive_work(task_name, 10);
@@ -143,21 +143,21 @@ int test_round_robin_behavior() {
     }
     
     // Parent: wait for all children
-    printf("Parent waiting for all WFS tasks to complete...\n");
+    printf("Parent waiting for all WFQ tasks to complete...\n");
     for (int i = 0; i < 3; i++) {
         waitpid(pids[i], &status, 0);
-        printf("WFS-Task-%d completed with status %d\n", i+1, WEXITSTATUS(status));
+        printf("WFQ-Task-%d completed with status %d\n", i+1, WEXITSTATUS(status));
     }
     
     return 0;
 }
 
 int test_scheduler_priority() {
-    pid_t pid_normal, pid_wfs;
+    pid_t pid_normal, pid_wfq;
     struct sched_param param;
     int status;
     
-    printf("\n=== Testing Scheduler Priority (WFS vs NORMAL) ===\n");
+    printf("\n=== Testing Scheduler Priority (WFQ vs NORMAL) ===\n");
     
     // Create NORMAL priority task
     pid_normal = fork();
@@ -169,15 +169,15 @@ int test_scheduler_priority() {
     
     sleep(1); // Let normal task start first
     
-    // Create WFS priority task  
-    pid_wfs = fork();
-    if (pid_wfs == 0) {
+    // Create WFQ priority task  
+    pid_wfq = fork();
+    if (pid_wfq == 0) {
         param.sched_priority = 0;
-        if (sched_setscheduler(0, SCHED_WFS, &param) != 0) {
-            printf("Failed to set WFS scheduler: %s\n", strerror(errno));
+        if (sched_setscheduler(0, SCHED_WFQ, &param) != 0) {
+            printf("Failed to set WFQ scheduler: %s\n", strerror(errno));
             exit(1);
         }
-        cpu_intensive_work("WFS-Task", 8);
+        cpu_intensive_work("WFQ-Task", 8);
         exit(0);
     }
     
@@ -185,8 +185,8 @@ int test_scheduler_priority() {
     waitpid(pid_normal, &status, 0);
     printf("NORMAL task completed\n");
     
-    waitpid(pid_wfs, &status, 0);
-    printf("WFS task completed\n");
+    waitpid(pid_wfq, &status, 0);
+    printf("WFQ task completed\n");
     
     return 0;
 }
@@ -194,7 +194,7 @@ int test_scheduler_priority() {
 void print_usage(const char* progname) {
     printf("Usage: %s [test_type]\n", progname);
     printf("test_type:\n");
-    printf("  basic    - Basic WFS scheduler functionality test\n");
+    printf("  basic    - Basic WFQ scheduler functionality test\n");
     printf("  rr       - Round-robin behavior test\n");
     printf("  priority - Priority comparison test\n");
     printf("  all      - Run all tests (default)\n");
@@ -207,7 +207,7 @@ int main(int argc, char* argv[]) {
         test_type = argv[1];
     }
     
-    printf("WFS Scheduler Test Program\n");
+    printf("WFQ Scheduler Test Program\n");
     printf("==========================\n");
     
     // Check if we're running as root (recommended for scheduler changes)
@@ -219,7 +219,7 @@ int main(int argc, char* argv[]) {
     int ret = 0;
     
     /*if (strcmp(test_type, "basic") == 0 || strcmp(test_type, "all") == 0) {
-        ret |= test_wfs_scheduler();
+        ret |= test_wfq_scheduler();
     }*/
     
     if (strcmp(test_type, "rr") == 0 || strcmp(test_type, "all") == 0) {

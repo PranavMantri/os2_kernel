@@ -1,5 +1,5 @@
-wfs_test
-simple_wfs_test
+wfq_test
+simple_wfq_test
 fork_test
 
-syscall_tests/test_wfs_interactive
+syscall_tests/test_wfq_interactive

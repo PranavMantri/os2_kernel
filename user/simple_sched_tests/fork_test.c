@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <string.h>
 
-#define WFS_SCHED 8   // Custom scheduling policy
+#define WFQ_SCHED 8   // Custom scheduling policy
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
     param.sched_priority = 0;  // Custom scheduler may ignore this
 
     // Set scheduler of current process
-    if (sched_setscheduler(0, WFS_SCHED, &param) == -1) {
+    if (sched_setscheduler(0, WFQ_SCHED, &param) == -1) {
         fprintf(stderr, "sched_setscheduler failed: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }

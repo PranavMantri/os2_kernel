@@ -20,9 +20,9 @@
 #define DEFAULT_PRIO		(MAX_RT_PRIO + NICE_WIDTH / 2)
 
 /* 6118 */
-#define MAX_WFS_PRIO		139
-#define MIN_WFS_PRIO		100
-#define WFS_PRIO_WIDTH		(MAX_WFS_PRIO - MIN_WFS_PRIO + 1)
+#define MAX_WFQ_PRIO		139
+#define MIN_WFQ_PRIO		100
+#define WFQ_PRIO_WIDTH		(MAX_WFQ_PRIO - MIN_WFQ_PRIO + 1)
 /* 6118 */
 
 /*
