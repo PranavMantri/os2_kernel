@@ -19,7 +19,7 @@ static inline struct sched_wfs_entity *wfs_se_of(struct task_struct *p)
 }
 
 // Comparison function for RB-tree ordering by VFT
-static bool wfs_entity_before(struct rb_node *a, const struct rb_node *b)
+static inline bool wfs_entity_before(struct rb_node *a, const struct rb_node *b)
 {
     struct sched_wfs_entity *se_a = rb_entry(a, struct sched_wfs_entity, run_node);
     struct sched_wfs_entity *se_b = rb_entry(b, struct sched_wfs_entity, run_node);
