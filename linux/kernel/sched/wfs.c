@@ -133,7 +133,6 @@ static void add_task_to_cpu_weight(struct wfs_rq *wfs_rq, u64 weight)
     WRITE_ONCE(wfs_rq->cpu_total_weight, wfs_rq->cpu_total_weight + weight);
 }
 
-/* Remove task weight from CPU's total weight - SIMPLE VERSION */
 static void remove_task_from_cpu_weight(struct wfs_rq *wfs_rq, u64 weight)
 {
     /* Called with rq->lock held by dequeue_task, so this is safe */
@@ -258,11 +257,9 @@ static bool dequeue_task_wfs(struct rq *rq, struct task_struct *p, int flags)
 {
     struct wfs_rq *wfs_rq = &rq->wfs;
     struct sched_wfs_entity *se = &p->wfs;
-    int cpu = cpu_of(rq);
 
     /* Only remove if actually in RB-tree */
     if (!RB_EMPTY_NODE(&se->run_node)) {
-        /* Remove task weight from CPU's total weight */
         remove_task_from_cpu_weight(wfs_rq, se->weight);
 
         rb_erase_cached(&se->run_node, &wfs_rq->tasks_timeline);
@@ -272,12 +269,6 @@ static bool dequeue_task_wfs(struct rq *rq, struct task_struct *p, int flags)
         sub_nr_running(rq, 1);
 
         update_min_vruntime(wfs_rq);
-
-        // TODO: Clean up the if/else
-        //printk(KERN_INFO "WFS: PID %d DEQUEUED from CPU %d (flags=%d), weight=%u, runqueue now has %u tasks\n",
-        //       p->pid, cpu, flags, se->weight, wfs_rq->wfs_nr_running);
-    } else {
-        //printk(KERN_WARNING "WFS: PID %d not on runqueue, skipping dequeue\n", p->pid);
     }
     return true;
 }
@@ -318,52 +309,38 @@ static void put_prev_task_wfs(struct rq *rq, struct task_struct *p, struct task_
     struct wfs_rq *wfs_rq = &rq->wfs;
     struct sched_wfs_entity *se = &p->wfs;
     u64 now = rq_clock_task(rq);
-    int cpu = cpu_of(rq);
-    
-    //printk(KERN_DEBUG "WFS: PUT_PREV task PID %d on CPU %d (next is PID %d)\n",
-      //     p->pid, cpu, next ? next->pid : -1);
-    
+
     /* Update execution time and virtual runtime */
     if (se->exec_start) {
         u64 delta_exec = now - se->exec_start;
-        
+
         /* Update total runtime */
         p->se.sum_exec_runtime += delta_exec;
         se->sum_exec_runtime += delta_exec;
-        
+
         /* Update CPU virtual time */
         update_cpu_vtime(wfs_rq, delta_exec);
-        
+
         /* Update virtual runtime and recalculate VFT */
         update_vruntime(se, delta_exec);
-        
+
         se->exec_start = 0;
-        
+
         /* If task is still runnable, we need to reposition it in RB-tree */
         if (next != p && !RB_EMPTY_NODE(&se->run_node)) {
-            /* Remove from current position */
             rb_erase_cached(&se->run_node, &wfs_rq->tasks_timeline);
-            
+
             /* Re-insert at new position based on updated VFT */
             rb_add_cached(&se->run_node, &wfs_rq->tasks_timeline, wfs_entity_before);
-            
+
             update_min_vruntime(wfs_rq);
-            
-        //    printk(KERN_DEBUG "WFS: Task PID %d repositioned in RB-tree, new VFT=%llu\n",
-          //         p->pid, se->vft);
         }
     }
 }
 
 static void set_next_task_wfs(struct rq *rq, struct task_struct *p, bool first)
 {
-    struct wfs_rq *wfs_rq = &rq->wfs;
-    int cpu = cpu_of(rq);
-    
     p->wfs.exec_start = rq_clock_task(rq);
-    
-    //printk(KERN_DEBUG "WFS: SET_NEXT task PID %d (first=%d), %u tasks in queue\n", 
-    //       p->pid, first, wfs_rq->wfs_nr_running);
 }
 
 void update_curr_wfs(struct rq *rq)
@@ -372,7 +349,6 @@ void update_curr_wfs(struct rq *rq)
     struct task_struct *curr = rq->curr;
     struct sched_wfs_entity *se;
     u64 now = rq_clock_task(rq);
-    int cpu = cpu_of(rq);
 
     if (curr->sched_class != &wfs_sched_class)
         return;
@@ -473,16 +449,14 @@ static void wfs_check_periodic_balance(struct rq *this_rq, u64 now)
 static void task_tick_wfs(struct rq *rq, struct task_struct *p, int queued)
 {
     struct wfs_rq *wfs_rq = &rq->wfs;
-    struct sched_wfs_entity *se = &p->wfs;
-    int cpu = cpu_of(rq);
     u64 now = rq_clock_task(rq);
 
     /* Update runtime stats first */
     update_curr_wfs(rq);
-
+    
     /* Check for periodic load balancing - pass the rq and time */
     wfs_check_periodic_balance(rq, now);
-
+    
     /*
      * WFS: each task runs for exactly 1 tick quantum
      * Always preempt after 1 tick if there are other tasks
@@ -492,13 +466,9 @@ static void task_tick_wfs(struct rq *rq, struct task_struct *p, int queued)
         resched_curr(rq);
     }
 }
+
 static void switched_to_wfs(struct rq *rq, struct task_struct *p)
 {
-    struct wfs_rq *wfs_rq = &rq->wfs;
-    int cpu = cpu_of(rq);
-    
-    //printk(KERN_INFO "WFS: Task PID %d SWITCHED_TO WFS class, %u tasks in queue\n", 
-    //       p->pid, wfs_rq->wfs_nr_running);
     
     /* If this task should preempt current task */
     if (rq->curr != p && rq->curr->sched_class == &wfs_sched_class)
@@ -507,13 +477,7 @@ static void switched_to_wfs(struct rq *rq, struct task_struct *p)
 
 static void switched_from_wfs(struct rq *rq, struct task_struct *p)
 {
-    struct wfs_rq *wfs_rq = &rq->wfs;
-    int cpu = cpu_of(rq);
-    
-    //printk(KERN_INFO "WFS: Task PID %d SWITCHED_FROM WFS class, %u tasks in queue\n", 
-    //       p->pid, wfs_rq->wfs_nr_running);
 
-    
     /* Clean up when task leaves WFS */
     if (p->wfs.exec_start) {
         u64 delta_exec = rq_clock_task(rq) - p->wfs.exec_start;
@@ -523,25 +487,7 @@ static void switched_from_wfs(struct rq *rq, struct task_struct *p)
     }
 }
 
-static void check_preempt_curr_wfs(struct rq *rq, struct task_struct *p, int flags)
-{
-    struct task_struct *curr = rq->curr;
-    struct wfs_rq *wfs_rq = &rq->wfs;
-    
-    /* Only preempt if both current and candidate task are WFS */
-    if (curr->sched_class != &wfs_sched_class || p->sched_class != &wfs_sched_class)
-        return;
-    
-    /* 
-     * WFS preemption logic: preempt if the candidate task has better VFT
-     * (lower VFT = higher priority in WFS)
-     */
-    if (p->wfs.vft < curr->wfs.vft) {
-        //printk(KERN_DEBUG "WFS: Preempting PID %d (VFT=%llu) with PID %d (VFT=%llu)\n",
-        //       curr->pid, curr->wfs.vft, p->pid, p->wfs.vft);
-        resched_curr(rq);
-    }
-}
+
 static void wakeup_preempt_wfs(struct rq *rq, struct task_struct *p, int flags)
 {
     /* 
@@ -555,7 +501,6 @@ static void wakeup_preempt_wfs(struct rq *rq, struct task_struct *p, int flags)
 
 void init_wfs_rq(struct wfs_rq *wfs_rq)
 {
-    /* Remove INIT_LIST_HEAD since we're not using the list anymore */
     wfs_rq->tasks_timeline = RB_ROOT_CACHED;
     wfs_rq->wfs_nr_running = 0;
     wfs_rq->min_vruntime = 0;
@@ -635,33 +580,24 @@ static int balance_wfs(struct rq *rq, struct task_struct *prev, struct rq_flags 
 static void migrate_task_rq_wfs(struct task_struct *p, int new_cpu)
 {
     struct sched_wfs_entity *se = &p->wfs;
-    int old_cpu = se->assigned_cpu;
-    
+
     /* Only update the assigned CPU tracking - don't manipulate weights here */
     se->assigned_cpu = new_cpu;
-    
-    /* 
+
+    /*
      * DON'T manipulate weights here - the normal enqueue/dequeue cycle
      * will handle weight accounting properly:
      * 1. dequeue_task_wfs() removes weight from old CPU
      * 2. enqueue_task_wfs() adds weight to new CPU
      */
-    
 }
 
 static void rq_online_wfs(struct rq *rq)
 {
-    int cpu = cpu_of(rq);
-    //printk(KERN_INFO "WFS: CPU %d came online\n", cpu);
 }
 
 static void rq_offline_wfs(struct rq *rq)
 {
-    int cpu = cpu_of(rq);
-    struct wfs_rq *wfs_rq = &rq->wfs;
-    
-    //printk(KERN_INFO "WFS: CPU %d going offline, had total weight %llu\n",
-      //     cpu, wfs_rq->cpu_total_weight);
 }
 
 static void task_woken_wfs(struct rq *rq, struct task_struct *p)
@@ -669,11 +605,6 @@ static void task_woken_wfs(struct rq *rq, struct task_struct *p)
     /* No-op - nothing to do after remote wakeup */
 }
 
-static void set_cpus_allowed_wfs(struct task_struct *p, struct affinity_context *ctx)
-{
-    /* Could implement logic to rebalance if affinity changes */
-    //printk(KERN_DEBUG "WFS: CPU affinity changed for PID %d\n", p->pid);
-}
 
 static bool yield_to_task_wfs(struct rq *rq, struct task_struct *p)
 {
@@ -683,15 +614,14 @@ static bool yield_to_task_wfs(struct rq *rq, struct task_struct *p)
 
 static void yield_task_wfs(struct rq *rq)
 {
-    /* Remove the old list-based yield logic since we don't have run_list anymore */
-    struct task_struct *curr = rq->curr;
     struct wfs_rq *wfs_rq = &rq->wfs;
-    
+
     /* For WFS, yielding just triggers a reschedule */
     if (wfs_rq->wfs_nr_running > 1) {
         resched_curr(rq);
     }
 }
+
 
 static void prio_changed_wfs(struct rq *rq, struct task_struct *p, int oldprio)
 {
