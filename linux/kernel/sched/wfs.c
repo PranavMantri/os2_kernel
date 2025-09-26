@@ -436,8 +436,8 @@ static void wfs_periodic_balance(int this_cpu)
             set_task_cpu(task_to_migrate, min_cpu);
             activate_task(min_rq, task_to_migrate, ENQUEUE_NOCLOCK);
 
-            printk(KERN_INFO "WFS: Migrated task PID %d from CPU %d (weight %llu) to CPU %d (weight %llu)\n",
-                   task_to_migrate->pid, max_cpu, max_weight, min_cpu, min_weight);
+            //printk(KERN_INFO "WFS: Migrated task PID %d from CPU %d (weight %llu) to CPU %d (weight %llu)\n",
+            //       task_to_migrate->pid, max_cpu, max_weight, min_cpu, min_weight);
         }
     }
 
@@ -581,7 +581,57 @@ static int select_task_rq_wfs(struct task_struct *p, int cpu, int flags)
 /* Idle load balancing - pull tasks from heaviest CPU to idle CPU */
 
 static int balance_wfs(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
-{ return 0;} 
+{
+    int this_cpu = cpu_of(rq);
+    int max_cpu;
+    struct rq *max_rq;
+    struct task_struct *task_to_migrate;
+    u64 max_weight, this_weight;
+
+    /* If we have WFS tasks, no need to balance */
+    if (rq->wfs.wfs_nr_running)
+        return 0;
+
+    this_weight = rq->wfs.cpu_total_weight;
+
+    /* Find CPU with maximum weight */
+    max_cpu = find_max_weight_cpu();
+    
+    if (max_cpu == -1 || max_cpu == this_cpu)
+        return 0;
+
+    max_rq = cpu_rq(max_cpu);
+
+    /* Only pull if the max CPU has significantly more work than us */
+    max_weight = READ_ONCE(max_rq->wfs.cpu_total_weight);
+    if (max_weight <= this_weight)
+        return 0;
+
+    /* Use double_lock_balance - we already hold rq lock */
+    double_lock_balance(rq, max_rq);
+
+    /* Re-read weights under lock */
+    max_weight = max_rq->wfs.cpu_total_weight;
+    this_weight = rq->wfs.cpu_total_weight;
+
+    /* Find eligible task to migrate from max_cpu to this_cpu */
+    if (max_weight > this_weight) {
+        task_to_migrate = find_eligible_task_to_migrate(max_rq, this_cpu, max_weight, this_weight);
+
+        if (task_to_migrate && task_to_migrate->sched_class == &wfs_sched_class) {
+            deactivate_task(max_rq, task_to_migrate, DEQUEUE_NOCLOCK);
+            set_task_cpu(task_to_migrate, this_cpu);
+            activate_task(rq, task_to_migrate, ENQUEUE_NOCLOCK);
+
+            double_unlock_balance(rq, max_rq);
+            return 1; /* Successfully pulled a task */
+        }
+    }
+
+    double_unlock_balance(rq, max_rq);
+    return 0; /* No task pulled */
+}
+
 static void migrate_task_rq_wfs(struct task_struct *p, int new_cpu)
 {
     struct sched_wfs_entity *se = &p->wfs;
