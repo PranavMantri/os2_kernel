@@ -1,3 +1,5 @@
 wfs_test
 simple_wfs_test
 fork_test
+
+syscall_tests/test_wfs_interactive
